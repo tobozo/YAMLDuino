@@ -19,7 +19,7 @@ void setup()
 
   String yaml = http.getString(); // put your YAML here
 
-  YmlToCJson *Y2CJ = new YmlToCJson();
+  YAMLToCJson *Y2CJ = new YAMLToCJson();
 
   cJSON *object = Y2CJ->toJson( yaml.c_str() ); // get converted yaml as cJSON object
 
@@ -43,7 +43,7 @@ void setup()
 
   String yaml = http.getString(); // put your YAML here
 
-  YamlToArduinoJson *Y2J = new YamlToArduinoJson( yaml.c_str() );
+  YAMLToArduinoJson *Y2J = new YAMLToArduinoJson( yaml.c_str() );
 
   JsonObject obj = Y2J->getJsonObject(); // get converted yaml as ArduinoJson object
   serializeJsonPretty(obj, Serial);
