@@ -14,6 +14,9 @@ It provides two ways to convert YAML strings to JSON (cJSON or ArduinoJson) obje
 
 void setup()
 {
+  // ...
+
+
   String yaml = http.getString(); // put your YAML here
 
   YmlToCJson *Y2CJ = new YmlToCJson();
@@ -36,6 +39,8 @@ void setup()
 
 void setup()
 {
+  // ...
+
   String yaml = http.getString(); // put your YAML here
 
   YamlToArduinoJson *Y2J = new YamlToArduinoJson( yaml.c_str() );
@@ -53,7 +58,7 @@ void setup()
   - [yaml2json](https://github.com/vikman90/yaml2json)
   - [@bblanchon](https://github.com/bblanchon)
   - [@DaveGamble](https://github.com/DaveGamble)
-  - [espressif](https://github.com/espressif)
+  - [@espressif](https://github.com/espressif)
 
 ### Additional resources:
 
