@@ -53,7 +53,7 @@ void setup()
   - [yaml2json](https://github.com/vikman90/yaml2json)
   - [@bblanchon](https://github.com/bblanchon)
   - [@DaveGamble](https://github.com/DaveGamble)
-  - [espressif][https://github.com/espressif)
+  - [espressif](https://github.com/espressif)
 
 ### Additional resources:
 
