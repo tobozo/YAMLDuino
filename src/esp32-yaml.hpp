@@ -29,9 +29,13 @@
  *
  */
 
+
+#include "logger.hpp"
+
 extern "C" {
   #include "libyaml/yaml.h" // https://github.com/yaml/libyaml
 }
+
 
 
 class YAMLParser
@@ -41,9 +45,10 @@ public:
   ~YAMLParser();
   YAMLParser( const char* yaml_str);
   void load( const char* yaml_str );
-  void handle_parser_error();
   yaml_document_t *yaml_document();
+  static void setLogLevel( YAML::LogLevel_t level );
 private:
+  void handle_parser_error();
   yaml_document_t _document;
   yaml_parser_t _parser;
 };
@@ -59,21 +64,23 @@ private:
     YAMLToArduinoJson() {};
     ~YAMLToArduinoJson();
     YAMLToArduinoJson( const char* yaml_str );
-    void toJson();
     void setYml( const char* yaml_str );
+    void toJson();
     void getJsonObject( JsonObject &dest );
     JsonObject& toJson( const char* yaml_str );
     JsonObject& getJsonObject();
     enum A2JNestingType_t { NONE, SEQ_KEY, MAP_KEY };
+    const char *A2JNestingTypeStr[3] = { "NONE", "SEQ_KEY", "MAP_KEY" };
   private:
-    void yaml2json_node( yaml_document_t * document, yaml_node_t * yamlNode, JsonObject &jsonNode, A2JNestingType_t nt=NONE, const char *nodename="", int depth=0 );
+    void toJsonNode( yaml_document_t * document, yaml_node_t * yamlNode, JsonObject &jsonNode, A2JNestingType_t nt=NONE, const char *nodename="", int depth=0 );
     void createJSONArray( JsonObject &dest, const char*name, const size_t size );
     void createJSONObject( JsonObject &dest, const char*name, const size_t size );
+    JsonObject createNestedObject( const char* name );
     DynamicJsonDocument *_doc = nullptr;
     JsonObject _root;
   };
 
-#endif // __has_include(<ArduinoJson.h>)
+#endif
 
 
 
@@ -96,4 +103,4 @@ private:
     cJSON *_root = nullptr;
   };
 
-#endif // __has_include(<cJSON.h>)
+#endif

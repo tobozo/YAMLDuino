@@ -31,28 +31,7 @@
 #include "esp32-yaml.hpp"
 
 
-#ifdef ESP32
-
-  #define YAML_LOG_e log_e
-  #define YAML_LOG_w log_w
-  #define YAML_LOG_i log_i
-  #define YAML_LOG_d log_d
-  #define YAML_LOG_v log_v
-
-#else
-
-  #define YAML_LOG_e printf
-  #define YAML_LOG_w printf
-  #define YAML_LOG_i printf
-  #define YAML_LOG_d printf
-  #define YAML_LOG_v printf
-
-#endif
-
-
-
-
-YAMLParser::YAMLParser( const char* yaml_str)
+YAMLParser::YAMLParser( const char* yaml_str )
 {
   load( yaml_str);
 }
@@ -70,15 +49,23 @@ yaml_document_t *YAMLParser::yaml_document()
 }
 
 
+void YAMLParser::setLogLevel( YAML::LogLevel_t level )
+{
+  YAML::LOG_LEVEL = level;
+}
+
+
 void YAMLParser::load( const char* yaml_str )
 {
   assert( yaml_str );
+  YAML_LOG_i("Loading %d bytes of yaml", strlen(yaml_str) );
   if( !yaml_parser_initialize(&_parser) ) {
     handle_parser_error();
-    //goto __parser_error;
+    YAML_LOG_e("[FATAL] could not initialize parser");
   } else {
     yaml_parser_set_input_string(&_parser, (const unsigned char*)yaml_str, strlen(yaml_str) );
     if (!yaml_parser_load(&_parser, &_document)) {
+      handle_parser_error();
       YAML_LOG_e("[FATAL] Failed to load YAML document at line %lu", _parser.problem_mark.line);
       return;
     }
@@ -92,44 +79,36 @@ void YAMLParser::handle_parser_error()
 {
   switch (_parser.error) {
     case YAML_MEMORY_ERROR:
-      YAML_LOG_e( "Memory error: Not enough memory for parsing\n");
+      YAML_LOG_e( "Memory error: Not enough memory for parsing");
     break;
     case YAML_READER_ERROR:
       if (_parser.problem_value != -1) {
-        YAML_LOG_e( "Reader error: %s: #%X at %ld\n", _parser.problem, _parser.problem_value, (long)_parser.problem_offset);
+        YAML_LOG_e( "[READER ERROR]: %s: #%X at %ld", _parser.problem, _parser.problem_value, (long)_parser.problem_offset);
       } else {
-        YAML_LOG_e( "Reader error: %s at %ld\n", _parser.problem, (long)_parser.problem_offset);
+        YAML_LOG_e( "[READER ERROR]: %s at %ld", _parser.problem, (long)_parser.problem_offset);
       }
     break;
     case YAML_SCANNER_ERROR:
       if (_parser.context) {
-        YAML_LOG_e( "Scanner error: %s at line %d, column %d\n" "%s at line %d, column %d\n", _parser.context,
-          (int)_parser.context_mark.line+1, (int)_parser.context_mark.column+1,
-          _parser.problem, (int)_parser.problem_mark.line+1,
-          (int)_parser.problem_mark.column+1
+        YAML_LOG_e( "[SCANNER ERROR]: %s at line %d, column %d\n" "%s at line %d, column %d", _parser.context,
+          (int)_parser.context_mark.line+1, (int)_parser.context_mark.column+1, _parser.problem, (int)_parser.problem_mark.line+1, (int)_parser.problem_mark.column+1
         );
       } else {
-        YAML_LOG_e( "Scanner error: %s at line %d, column %d\n", _parser.problem, (int)_parser.problem_mark.line+1, (int)_parser.problem_mark.column+1 );
+        YAML_LOG_e( "[SCANNER ERROR]: %s at line %d, column %d", _parser.problem, (int)_parser.problem_mark.line+1, (int)_parser.problem_mark.column+1 );
       }
     break;
     case YAML_PARSER_ERROR:
       if (_parser.context) {
-        YAML_LOG_e( "Parser error: %s at line %d, column %d\n"
-          "%s at line %d, column %d\n", _parser.context,
-          (int)_parser.context_mark.line+1, (int)_parser.context_mark.column+1,
-          _parser.problem, (int)_parser.problem_mark.line+1,
-          (int)_parser.problem_mark.column+1
+        YAML_LOG_e( "[PARSER ERROR]: %s at line %d, column %d\n" "%s at line %d, column %d", _parser.context,
+          (int)_parser.context_mark.line+1, (int)_parser.context_mark.column+1, _parser.problem, (int)_parser.problem_mark.line+1, (int)_parser.problem_mark.column+1
         );
       } else {
-        YAML_LOG_e( "Parser error: %s at line %d, column %d\n",
-          _parser.problem, (int)_parser.problem_mark.line+1,
-          (int)_parser.problem_mark.column+1
-        );
+        YAML_LOG_e( "[PARSER ERROR]: %s at line %d, column %d", _parser.problem, (int)_parser.problem_mark.line+1, (int)_parser.problem_mark.column+1 );
       }
     break;
     default:
       /* Couldn't happen. */
-      YAML_LOG_e( "Internal error\n");
+      YAML_LOG_e( "[INTERNAL ERROR]");
       break;
   }
 }
@@ -139,8 +118,16 @@ void YAMLParser::handle_parser_error()
 #if __has_include(<ArduinoJson.h>)
 
 
-  YAMLToArduinoJson::YAMLToArduinoJson(const char* yaml_str) { toJson(yaml_str); };
-  YAMLToArduinoJson::~YAMLToArduinoJson() { if( _doc) delete _doc; };
+  YAMLToArduinoJson::YAMLToArduinoJson(const char* yaml_str)
+  {
+    toJson(yaml_str);
+  }
+
+
+  YAMLToArduinoJson::~YAMLToArduinoJson()
+  {
+    if( _doc) delete _doc;
+  }
 
   void YAMLToArduinoJson::setYml( const char* yaml_str )
   {
@@ -158,7 +145,8 @@ void YAMLParser::handle_parser_error()
       YAML_LOG_e("No document defined.");
       return;
     }
-    yaml2json_node(yaml_document(), node, _root);
+    YAML_LOG_i("Converting to ArduinoJson");
+    toJsonNode(yaml_document(), node, _root);
   };
 
 
@@ -169,28 +157,47 @@ void YAMLParser::handle_parser_error()
     return _root;
   }
 
-  void YAMLToArduinoJson::getJsonObject( JsonObject &dest ) { dest = _root; }
-  JsonObject& YAMLToArduinoJson::getJsonObject() { return _root; }
+  void YAMLToArduinoJson::getJsonObject( JsonObject &dest )
+  {
+    dest = _root;
+  }
+
+
+  JsonObject& YAMLToArduinoJson::getJsonObject()
+  {
+    return _root;
+  }
 
 
   void YAMLToArduinoJson::createJSONArray( JsonObject &dest, const char*name, const size_t size )
   {
-      const size_t CAPACITY = JSON_ARRAY_SIZE( size );
-      DynamicJsonDocument arrayDoc(CAPACITY);
-      JsonArray array = arrayDoc.createNestedArray();
-      dest[name] = array;
+    if( dest[name].size() == size ) return;
+    const size_t CAPACITY = JSON_ARRAY_SIZE( size );
+    DynamicJsonDocument arrayDoc(CAPACITY);
+    JsonArray array = arrayDoc.createNestedArray();
+    dest[name] = array;
   }
 
   void YAMLToArduinoJson::createJSONObject( JsonObject &dest, const char*name, const size_t size )
   {
-      const size_t CAPACITY = JSON_OBJECT_SIZE( size );
-      DynamicJsonDocument objDoc(CAPACITY);
-      JsonObject obj = objDoc.createNestedObject();
-      dest[name] = obj;
+    if( dest[name].size() == size ) return;
+    const size_t CAPACITY = JSON_OBJECT_SIZE( size );
+    DynamicJsonDocument objDoc(CAPACITY);
+    JsonObject obj = objDoc.createNestedObject();
+    dest[name] = obj;
+  }
+
+  JsonObject YAMLToArduinoJson::createNestedObject( const char* name )
+  {
+    const size_t CAPACITY = JSON_OBJECT_SIZE( 1 );
+    DynamicJsonDocument rootDoc(CAPACITY);
+    rootDoc.createNestedObject(name);
+    JsonObject rootObj = rootDoc.as<JsonObject>();
+    return rootObj;
   }
 
 
-  void YAMLToArduinoJson::yaml2json_node( yaml_document_t * document, yaml_node_t * yamlNode, JsonObject &jsonNode, A2JNestingType_t nt, const char *nodename, int depth )
+  void YAMLToArduinoJson::toJsonNode( yaml_document_t * document, yaml_node_t * yamlNode, JsonObject &jsonNode, A2JNestingType_t nt, const char *nodename, int depth )
   {
     std::string indent = std::string(depth*2, ' ' );
     switch (yamlNode->type) {
@@ -225,35 +232,45 @@ void YAMLParser::handle_parser_error()
       break;
       case YAML_SEQUENCE_NODE:
       {
-        createJSONArray( jsonNode, nodename, yamlNode->data.sequence.items.top-yamlNode->data.sequence.items.start );
-        YAML_LOG_v("%s YAML_SEQUENCE_NODE: %lu items", indent.c_str(), yamlNode->data.sequence.items.top-yamlNode->data.sequence.items.start );
+        size_t array_size = yamlNode->data.sequence.items.top-yamlNode->data.sequence.items.start;
+        YAML_LOG_v("%s YAML_SEQUENCE_NODE: %lu items, parent=%s", indent.c_str(), array_size, A2JNestingTypeStr[nt] );
+        createJSONArray( jsonNode, nodename, array_size );
         yaml_node_item_t * item_i;
         for (item_i = yamlNode->data.sequence.items.start; item_i < yamlNode->data.sequence.items.top; ++item_i) {
           yaml_node_t *itemNode = yaml_document_get_node(document, *item_i);
-          YAML_LOG_v("%s SEQ_KEY: %s, nodename:%s", indent.c_str(), (char *)itemNode->data.scalar.value, nodename );
-          yaml2json_node( document, itemNode, jsonNode, SEQ_KEY, nodename, depth+1 );
+          if( itemNode->type == YAML_MAPPING_NODE ) { // array of anonymous objects
+            YAML_LOG_v("%s SEQ_KEY: %d, type=%d, nodename:%s", indent.c_str(), *item_i, itemNode->type, nodename );
+            JsonObject rootObj = createNestedObject("root");   // create empty object
+            jsonNode[nodename].add( rootObj["root"] );         // append ref to list
+            size_t nodeIndex = jsonNode[nodename].size()-1;    // current list index
+            JsonObject tmpObj = jsonNode[nodename][nodeIndex]; // alias item to object
+            toJsonNode( document, itemNode, tmpObj, SEQ_KEY, "root", depth+1 ); // go recursive
+            jsonNode[nodename][nodeIndex] = tmpObj["root"];    // reassign object to anonymous
+          } else { // array of sequences or values
+            YAML_LOG_v("%s SEQ_KEY: %s, type=%d, nodename:%s", indent.c_str(), (char *)itemNode->data.scalar.value, itemNode->type, nodename );
+            toJsonNode( document, itemNode, jsonNode, SEQ_KEY, nodename, depth+1 );
+          }
         }
       }
       break;
       case YAML_MAPPING_NODE:
       {
-        YAML_LOG_v("%s YAML_MAPPING_NODE: %lu pairs", indent.c_str(), yamlNode->data.mapping.pairs.top-yamlNode->data.mapping.pairs.start );
-        createJSONObject( jsonNode, nodename, yamlNode->data.sequence.items.top - yamlNode->data.sequence.items.start );
+        size_t object_size = yamlNode->data.mapping.pairs.top-yamlNode->data.mapping.pairs.start;
+        YAML_LOG_v("%s YAML_MAPPING_NODE: %lu pairs, parent=%s", indent.c_str(), object_size, A2JNestingTypeStr[nt] );
+        createJSONObject( jsonNode, nodename, object_size );
         JsonObject tmpObj = jsonNode[nodename];
+        if( nt == NONE ) jsonNode = tmpObj; // root object has no parent
+
         yaml_node_pair_t * pair_i;
         for (pair_i = yamlNode->data.mapping.pairs.start; pair_i < yamlNode->data.mapping.pairs.top; ++pair_i) {
-            yaml_node_t * key   = yaml_document_get_node(document, pair_i->key);
-            yaml_node_t * value = yaml_document_get_node(document, pair_i->value);
-            if (key->type != YAML_SCALAR_NODE) {
-                YAML_LOG_w("%s Mapping key is not scalar (line %lu, val=%s).", indent.c_str(), key->start_mark.line, (const char*)value->data.scalar.value);
-                continue;
-            }
-            YAML_LOG_v("%s MAP_KEY: %s, nodename:%s", indent.c_str() ,(char *)key->data.scalar.value, nodename );
-            yaml2json_node( document, value, tmpObj, MAP_KEY, (const char*)key->data.scalar.value, depth+1 );
-        }
-        if( String(nodename).isEmpty() ) {
-          // root node
-          jsonNode = tmpObj;
+          yaml_node_t * key   = yaml_document_get_node(document, pair_i->key);
+          yaml_node_t * value = yaml_document_get_node(document, pair_i->value);
+          if (key->type != YAML_SCALAR_NODE) {
+            YAML_LOG_w("%s Mapping key is not scalar (line %lu, val=%s).", indent.c_str(), key->start_mark.line, (const char*)value->data.scalar.value);
+            continue;
+          }
+          YAML_LOG_v("%s MAP_KEY: %s, nodename:%s", indent.c_str() ,(char *)key->data.scalar.value, nodename );
+          toJsonNode( document, value, tmpObj, MAP_KEY, (const char*)key->data.scalar.value, depth+1 );
         }
       }
       break;
@@ -303,6 +320,7 @@ void YAMLParser::handle_parser_error()
   cJSON * YAMLToCJson::toJson( const char* yaml_str )
   {
     load( yaml_str );
+    YAML_LOG_i("Converting to cJSON");
     _root = toJson( yaml_document() );
     return _root;
   }
