@@ -208,7 +208,7 @@ void YAMLParser::handle_parser_error()
   }
 
 
-  void YAMLToArduinoJson::toJsonNode( yaml_document_t * document, yaml_node_t * yamlNode, JsonObject &jsonNode, A2JNestingType_t nt, const char *nodename, int depth )
+  void YAMLToArduinoJson::toJsonNode( yaml_document_t * document, yaml_node_t * yamlNode, JsonObject &jsonNode, JNestingType_t nt, const char *nodename, int depth )
   {
     std::string indent = std::string(depth*2, ' ' );
     switch (yamlNode->type) {

@@ -37,7 +37,6 @@ extern "C" {
 }
 
 
-
 class YAMLParser
 {
 public:
@@ -58,6 +57,40 @@ private:
 
   #include <ArduinoJson.h>
 
+  enum JNestingType_t { NONE, SEQ_KEY, MAP_KEY };
+  #define indent(x) std::string(x*2, ' ').c_str()
+
+  static void serializeYml( JsonVariant root, Stream &out, int depth_level=0, JNestingType_t nt=NONE )
+  {
+    int parent_level = depth_level>0?depth_level-1:0;
+
+    if (root.is<JsonArray>()) {
+      JsonArray array = root;
+      for( int i=0; i<array.size(); i++ ) {
+        size_t child_depth_level = array[i].is<JsonObject>() ? depth_level+1 : depth_level-1;
+        serializeYml(array[i], out, child_depth_level, SEQ_KEY);
+      }
+    } else if (root.is<JsonObject>()) {
+      JsonObject object = root;
+      int i = 0;
+      for (JsonPair pair : object) {
+        const char* _indent = (i==0 && nt==SEQ_KEY) ? indent(parent_level) : indent(depth_level);
+        const char* _prefix = (i==0 && nt==SEQ_KEY) ? "- " : "";
+        out.printf("\n%s%s%s: ", _indent, _prefix, pair.key().c_str() );
+        serializeYml( pair.value(), out, depth_level+1, MAP_KEY );
+        i++;
+      }
+    } else if( !root.isNull() ) {
+      switch(nt) {
+        case SEQ_KEY: out.printf("\n%s%s%s",  indent(depth_level), "- ", root.as<String>().c_str() ); break;
+        default:  out.printf("%s",  root.as<String>().c_str() ); break;
+      }
+    } else {
+      out.println("Error, unhandled type");
+    }
+  }
+
+
   class YAMLToArduinoJson : public YAMLParser
   {
   public:
@@ -69,10 +102,9 @@ private:
     void getJsonObject( JsonObject &dest );
     JsonObject& toJson( const char* yaml_str );
     JsonObject& getJsonObject();
-    enum A2JNestingType_t { NONE, SEQ_KEY, MAP_KEY };
     const char *A2JNestingTypeStr[3] = { "NONE", "SEQ_KEY", "MAP_KEY" };
   private:
-    void toJsonNode( yaml_document_t * document, yaml_node_t * yamlNode, JsonObject &jsonNode, A2JNestingType_t nt=NONE, const char *nodename="", int depth=0 );
+    void toJsonNode( yaml_document_t * document, yaml_node_t * yamlNode, JsonObject &jsonNode, JNestingType_t nt=NONE, const char *nodename="", int depth=0 );
     void createJSONArray( JsonObject &dest, const char*name, const size_t size );
     void createJSONObject( JsonObject &dest, const char*name, const size_t size );
     JsonObject createNestedObject( const char* name );
