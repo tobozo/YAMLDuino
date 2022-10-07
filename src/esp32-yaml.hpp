@@ -41,10 +41,10 @@ extern "C" {
 class YAMLParser
 {
 public:
-  YAMLParser() {};
+  YAMLParser();
   ~YAMLParser();
-  YAMLParser( const char* yaml_str);
-  void load( const char* yaml_str );
+  YAMLParser( const char* yaml_or_json_str);
+  void load( const char* yaml_or_json_str );
   yaml_document_t *yaml_document();
   static void setLogLevel( YAML::LogLevel_t level );
 private:

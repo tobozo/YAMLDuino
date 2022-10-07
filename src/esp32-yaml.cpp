@@ -30,10 +30,20 @@
 
 #include "esp32-yaml.hpp"
 
-
-YAMLParser::YAMLParser( const char* yaml_str )
+YAMLParser::YAMLParser()
 {
-  load( yaml_str);
+  YAML_LOG_n("Current debug level: %s", YAML::logLevelStr() );
+  YAML_LOG_e("this is an error message");
+  YAML_LOG_w("this is a warning  message");
+  YAML_LOG_i("this is an info message");
+  YAML_LOG_d("this is a debug message");
+  YAML_LOG_v("this is a verbose message");
+}
+
+
+YAMLParser::YAMLParser( const char* yaml_or_json_str )
+{
+  load( yaml_or_json_str );
 }
 
 
@@ -51,19 +61,20 @@ yaml_document_t *YAMLParser::yaml_document()
 
 void YAMLParser::setLogLevel( YAML::LogLevel_t level )
 {
-  YAML::LOG_LEVEL = level;
+  YAML::setLogLevel( level );
+  YAML::setLoggerFunc( YAML::_LOG ); // re-attach logger
 }
 
 
-void YAMLParser::load( const char* yaml_str )
+void YAMLParser::load( const char* yaml_or_json_str )
 {
-  assert( yaml_str );
-  YAML_LOG_i("Loading %d bytes of yaml", strlen(yaml_str) );
+  assert( yaml_or_json_str );
+  YAML_LOG_i("Loading %d bytes", strlen(yaml_or_json_str) );
   if( !yaml_parser_initialize(&_parser) ) {
     handle_parser_error();
     YAML_LOG_e("[FATAL] could not initialize parser");
   } else {
-    yaml_parser_set_input_string(&_parser, (const unsigned char*)yaml_str, strlen(yaml_str) );
+    yaml_parser_set_input_string(&_parser, (const unsigned char*)yaml_or_json_str, strlen(yaml_or_json_str) );
     if (!yaml_parser_load(&_parser, &_document)) {
       handle_parser_error();
       YAML_LOG_e("[FATAL] Failed to load YAML document at line %lu", _parser.problem_mark.line);

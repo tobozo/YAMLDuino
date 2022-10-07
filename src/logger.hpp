@@ -32,13 +32,26 @@
 // Emit logs in arduino style at software level rather than firmware level
 
 #ifdef ESP32
-  #include <esp32-hal-log.h>
-  #define LOG_PRINTF log_printf // aliasing this for non-esp32 compat
+  #include "Esp.h" // bring esp32-arduino specifics to scope
+  #define LOG_PRINTF log_printf // built-in esp32
+  #define HEAP_AVAILABLE() ESP.getFreeHeap()
+  #define YAML_DEFAULT_LOG_LEVEL (LogLevel_t)ARDUHAL_LOG_LEVEL
+  #define YAML_PATHNAME pathToFileName
 #else
+  #include <stdio.h>
+  #include <stdint.h>
+  #include <stdarg.h>
   // declare macros and functions needed by the logger
-  #define ARDUHAL_SHORT_LOG_FORMAT(letter, format)  ## letter format "\r\n"
   #define LOG_PRINTF printf
-  const char * pathToFileName(const char * path)
+  #define HEAP_AVAILABLE() getFreeRam()
+  #define YAML_DEFAULT_LOG_LEVEL LogLevelWarning
+  #define YAML_PATHNAME _pathToFileName
+  static int getFreeRam()
+  {
+    // implement your own
+    return 0;
+  }
+  static const char * _pathToFileName(const char * path)
   {
     size_t i = 0, pos = 0;
     char * p = (char *)path;
@@ -58,44 +71,63 @@ namespace YAML
 {
   // maximum size of log string
   #define LOG_MAXLENGTH 215
-  // the default logging function
-  static void _LOG(const char* path, int line, int loglevel, const char* fmr, ...);
-  // the pointer to the logging function (can be overloaded with a custom logger)
-  __attribute__((unused)) static void (*LOG)(const char* path, int line, int loglevel, const char* fmr, ...) = _LOG;
+  #define YAML_LOGGER_attr __attribute__((unused)) static
+
+  // logger function signature
   typedef void (*YAML_LOGGER_t)(const char* path, int line, int loglevel, const char* fmr, ...);
+
+  // supported log levels, inspired from esp32 arduhal
+  enum LogLevel_t
+  {
+    LogLevelNone,    // no logging
+    LogLevelError,   // err
+    LogLevelWarning, // err+warn
+    LogLevelInfo,    // err+warn+info
+    LogLevelDebug,   // err+warn+info+debug
+    LogLevelVerbose  // err+warn+info+debug+verbose
+  };
+  // log levels names
+  YAML_LOGGER_attr const char* levelNames[6] = {"None","Error","Warning","Info","Debug","Verbose"};
+  // the default logging function
+  YAML_LOGGER_attr void _LOG(const char* path, int line, int loglevel, const char* fmr, ...);
+  // the pointer to the logging function (can be overloaded with a custom logger)
+  YAML_LOGGER_attr void (*LOG)(const char* path, int line, int loglevel, const char* fmr, ...) = _LOG;
+  // log level setter
+  YAML_LOGGER_attr void setLogLevel( LogLevel_t level );
   // the logging function setter
-  __attribute__((unused)) static void setLoggerFunc( YAML_LOGGER_t fn )
+  YAML_LOGGER_attr void setLoggerFunc( YAML_LOGGER_t fn );
+  // default log level
+  YAML_LOGGER_attr LogLevel_t _LOG_LEVEL = YAML_DEFAULT_LOG_LEVEL;
+  // log level getter (int)
+  YAML_LOGGER_attr LogLevel_t logLevelInt();
+  // log level getter (string)
+  YAML_LOGGER_attr const char* logLevelStr();
+
+  LogLevel_t logLevelInt()
+  {
+    return _LOG_LEVEL;
+  }
+
+  const char* logLevelStr()
+  {
+    return levelNames[_LOG_LEVEL];
+  }
+
+  void setLogLevel( LogLevel_t level )
+  {
+    YAML::_LOG_LEVEL = level;
+    printf("New log level: %d\n", level );
+  }
+
+  void setLoggerFunc( YAML_LOGGER_t fn )
   {
     LOG = fn;
   }
-  // supported log levels
-  enum LogLevel_t
-  {
-    LogLevelVerbose, // err+warn+info+debug+verbose
-    LogLevelDebug,   // err+warn+info+debug
-    LogLevelInfo,    // err+warn+info
-    LogLevelWarning, // err+warn
-    LogLevelError    // err
-  };
 
-  // default log level
-  static LogLevel_t LOG_LEVEL = LogLevelWarning;
-
-
-  /**
-  * @brief default logging function
-  *
-  * @param path full path to the source file emitting the log message
-  * @param line line number in the source file emitting the log message
-  * @param loglevel log level of the message
-  * @param fmr format string
-  * @param mixed ... args for the format string
-  * @return void
-  */
   void _LOG(const char* path, int line, int loglevel, const char* fmr, ...)
   {
-    using namespace YAML;
-    if (loglevel >= LOG_LEVEL) {
+    if( loglevel <= YAML::_LOG_LEVEL ) {
+      using namespace YAML;
       char log_buffer[LOG_MAXLENGTH+1] = {0};
       va_list arg;
       va_start(arg, fmr);
@@ -103,11 +135,12 @@ namespace YAML
       va_end(arg);
       if( log_buffer[0] != '\0' ) {
         switch( loglevel ) {
-          case LogLevelVerbose: LOG_PRINTF(ARDUHAL_SHORT_LOG_FORMAT(D, "[V][%s:%d] %s"), pathToFileName(path), line, log_buffer); break;
-          case LogLevelDebug:   LOG_PRINTF(ARDUHAL_SHORT_LOG_FORMAT(D, "[D][%s:%d] %s"), pathToFileName(path), line, log_buffer); break;
-          case LogLevelInfo:    LOG_PRINTF(ARDUHAL_SHORT_LOG_FORMAT(I, "[I][%s:%d] %s"), pathToFileName(path), line, log_buffer); break;
-          case LogLevelWarning: LOG_PRINTF(ARDUHAL_SHORT_LOG_FORMAT(W, "[W][%s:%d] %s"), pathToFileName(path), line, log_buffer); break;
-          case LogLevelError:   LOG_PRINTF(ARDUHAL_SHORT_LOG_FORMAT(E, "[E][%s:%d] %s"), pathToFileName(path), line, log_buffer); break;
+          case LogLevelVerbose: LOG_PRINTF("[V][%d][%s:%d] %s\r\n", HEAP_AVAILABLE(), YAML_PATHNAME(path), line, log_buffer); break;
+          case LogLevelDebug:   LOG_PRINTF("[D][%d][%s:%d] %s\r\n", HEAP_AVAILABLE(), YAML_PATHNAME(path), line, log_buffer); break;
+          case LogLevelInfo:    LOG_PRINTF("[I][%d][%s:%d] %s\r\n", HEAP_AVAILABLE(), YAML_PATHNAME(path), line, log_buffer); break;
+          case LogLevelWarning: LOG_PRINTF("[W][%d][%s:%d] %s\r\n", HEAP_AVAILABLE(), YAML_PATHNAME(path), line, log_buffer); break;
+          case LogLevelError:   LOG_PRINTF("[E][%d][%s:%d] %s\r\n", HEAP_AVAILABLE(), YAML_PATHNAME(path), line, log_buffer); break;
+          case LogLevelNone:    LOG_PRINTF("[N][%d][%s:%d] %s\r\n", HEAP_AVAILABLE(), YAML_PATHNAME(path), line, log_buffer); break;
         }
       }
     }
@@ -122,4 +155,5 @@ namespace YAML
 #define YAML_LOG_i(format, ...) YAML::LOG(__FILE__, __LINE__, YAML::LogLevelInfo,    format, ##__VA_ARGS__)
 #define YAML_LOG_w(format, ...) YAML::LOG(__FILE__, __LINE__, YAML::LogLevelWarning, format, ##__VA_ARGS__)
 #define YAML_LOG_e(format, ...) YAML::LOG(__FILE__, __LINE__, YAML::LogLevelError,   format, ##__VA_ARGS__)
+#define YAML_LOG_n(format, ...) YAML::LOG(__FILE__, __LINE__, YAML::LogLevelNone,    format, ##__VA_ARGS__)
 
