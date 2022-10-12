@@ -31,6 +31,16 @@
 
 // Emit logs in arduino style at software level rather than firmware level
 
+
+// log functions turned to macros to allow gathering of file name, log level, etc
+#define YAML_LOG_v(format, ...) YAML::LOG(__FILE__, __LINE__, YAML::LogLevelVerbose, format, ##__VA_ARGS__)
+#define YAML_LOG_d(format, ...) YAML::LOG(__FILE__, __LINE__, YAML::LogLevelDebug,   format, ##__VA_ARGS__)
+#define YAML_LOG_i(format, ...) YAML::LOG(__FILE__, __LINE__, YAML::LogLevelInfo,    format, ##__VA_ARGS__)
+#define YAML_LOG_w(format, ...) YAML::LOG(__FILE__, __LINE__, YAML::LogLevelWarning, format, ##__VA_ARGS__)
+#define YAML_LOG_e(format, ...) YAML::LOG(__FILE__, __LINE__, YAML::LogLevelError,   format, ##__VA_ARGS__)
+#define YAML_LOG_n(format, ...) YAML::LOG(__FILE__, __LINE__, YAML::LogLevelNone,    format, ##__VA_ARGS__)
+
+
 #ifdef ESP32
   #include "Esp.h" // bring esp32-arduino specifics to scope
   #define LOG_PRINTF log_printf // built-in esp32
@@ -116,7 +126,7 @@ namespace YAML
   void setLogLevel( LogLevel_t level )
   {
     YAML::_LOG_LEVEL = level;
-    printf("New log level: %d\n", level );
+    YAML_LOG_n("New log level: %d", level );
   }
 
   void setLoggerFunc( YAML_LOGGER_t fn )
@@ -149,11 +159,5 @@ namespace YAML
 };
 
 
-// log functions turned to macros to allow gathering of file name, log level, etc
-#define YAML_LOG_v(format, ...) YAML::LOG(__FILE__, __LINE__, YAML::LogLevelVerbose, format, ##__VA_ARGS__)
-#define YAML_LOG_d(format, ...) YAML::LOG(__FILE__, __LINE__, YAML::LogLevelDebug,   format, ##__VA_ARGS__)
-#define YAML_LOG_i(format, ...) YAML::LOG(__FILE__, __LINE__, YAML::LogLevelInfo,    format, ##__VA_ARGS__)
-#define YAML_LOG_w(format, ...) YAML::LOG(__FILE__, __LINE__, YAML::LogLevelWarning, format, ##__VA_ARGS__)
-#define YAML_LOG_e(format, ...) YAML::LOG(__FILE__, __LINE__, YAML::LogLevelError,   format, ##__VA_ARGS__)
-#define YAML_LOG_n(format, ...) YAML::LOG(__FILE__, __LINE__, YAML::LogLevelNone,    format, ##__VA_ARGS__)
+
 
