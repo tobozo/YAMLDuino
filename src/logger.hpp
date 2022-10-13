@@ -47,26 +47,48 @@
   #define HEAP_AVAILABLE() ESP.getFreeHeap()
   #define YAML_DEFAULT_LOG_LEVEL (LogLevel_t)ARDUHAL_LOG_LEVEL
   #define YAML_PATHNAME pathToFileName
-#else
-  #include <stdio.h>
-  #include <stdint.h>
+#elif defined ESP8266
+  #include "Esp.h" // bring esp8266-arduino specifics to scope
+  #define HEAP_AVAILABLE() ESP.getFreeHeap()
+  #define LOG_PRINTF Serial.printf
+#elif defined ARDUINO_ARCH_RP2040
+  #include <Arduino.h>
+  #define LOG_PRINTF Serial.printf
+  #define HEAP_AVAILABLE() rp2040.getFreeHeap()
+#elif defined ARDUINO_ARCH_SAMD
   #include <stdarg.h>
-  // declare macros and functions needed by the logger
-  #define LOG_PRINTF printf
-  #ifdef ESP8266
-    #include "Esp.h" // bring esp8266-arduino specifics to scope
-    #define HEAP_AVAILABLE() ESP.getFreeHeap()
-  #else
-    #define HEAP_AVAILABLE() getFreeRam()
-    static int getFreeRam()
-    {
-      // implement your own
-      return 0;
-    }
-  #endif
-  #define YAML_DEFAULT_LOG_LEVEL LogLevelWarning
-  #define YAML_PATHNAME _pathToFileName
+  #include <Arduino.h>
+  #define LOG_PRINTF Serial.printf
+  #ifdef __arm__
+    // should use uinstd.h to define sbrk but Due causes a conflict
+    extern "C" char* sbrk(int incr);
+  #else  // __ARM__
+    extern char *__brkval;
+  #endif  // __arm__
+  static int getFreeRam()
+  {
+    char top;
+    #ifdef __arm__
+      return &top - reinterpret_cast<char*>(sbrk(0));
+    #elif defined(CORE_TEENSY) || (ARDUINO > 103 && ARDUINO != 151)
+      return &top - __brkval;
+    #else  // __arm__
+      return __brkval ? &top - __brkval : &top - __malloc_heap_start;
+    #endif  // __arm__
+  }
+  #define HEAP_AVAILABLE() getFreeRam()
+#else
+  static int getFreeRam()
+  {
+    // implement your own
+    return 0;
+  }
+  #define HEAP_AVAILABLE() getFreeRam()
 
+#endif
+
+#if !defined YAML_PATHNAME
+  #define YAML_PATHNAME _pathToFileName
   static const char * _pathToFileName(const char * path)
   {
     size_t i = 0, pos = 0;
@@ -81,6 +103,15 @@
     return path+pos;
   }
 #endif
+
+#if !defined LOG_PRINTF
+  #define LOG_PRINTF printf
+#endif
+
+#if !defined YAML_DEFAULT_LOG_LEVEL
+  #define YAML_DEFAULT_LOG_LEVEL LogLevelWarning
+#endif
+
 
 
 namespace YAML
