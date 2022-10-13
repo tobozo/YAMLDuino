@@ -67,7 +67,11 @@ const char* json_example_str = R"_JSON_STRING_(
 void setup()
 {
   Serial.begin(115200);
-  delay(1000);
+  delay(5000);
+  Serial.print("Welcome to the YAML Test sketch\nRam free: ");
+  Serial.print( HEAP_AVAILABLE() );
+  Serial.println(" bytes");
+
   const size_t yaml_str_size = strlen(yaml_example_str);
   const size_t json_str_size = strlen(json_example_str);
   int test_number = 1;
@@ -82,6 +86,7 @@ void setup()
 
     YAML_LOG_n("YAML=>JSON and JSON=>YAML using ArduinoJson\n\n");
 
+    #if !defined ARDUINO_ARCH_SAMD // samd with 32kb ram can oom after this, so only enable for specific test
     {
       YAML_LOG_n( "[TEST #%d] YAML stream to JsonObject -> deserializeYml(json_doc, yaml_stream):", test_number++ );
       DynamicJsonDocument json_doc(yaml_str_size*2);
@@ -95,6 +100,7 @@ void setup()
       const size_t bytes_out = serializeJsonPretty( json_doc, Serial ); // print deserialized JsonObject
       YAML_LOG_n("[YAML=>JsonObject] yaml bytes in=%d, json bytes out=%d\n\n", yaml_str_size, bytes_out);
     }
+    #endif
 
 
     {

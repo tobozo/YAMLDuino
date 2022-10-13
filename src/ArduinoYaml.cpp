@@ -80,6 +80,7 @@ struct yaml_stream_handler_data_t
 };
 
 
+// stream reader callback
 int _yaml_stream_reader(void *data, unsigned char *buffer, size_t size, size_t *size_read)
 {
   yaml_stream_handler_data_t *shd = (yaml_stream_handler_data_t*)data;
@@ -93,7 +94,7 @@ int _yaml_stream_reader(void *data, unsigned char *buffer, size_t size, size_t *
 }
 
 
-// typedef int yaml_write_handler_t(void *data, unsigned char *buffer, size_t size);
+// stream writer callback
 int _yaml_stream_writer(void *data, unsigned char *buffer, size_t size)
 {
   yaml_stream_handler_data_t *shd = (yaml_stream_handler_data_t*)data;

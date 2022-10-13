@@ -36,22 +36,27 @@ extern "C" {
   #include "libyaml/yaml.h" // https://github.com/yaml/libyaml
 }
 
-
-#define USE_STREAM_TO_STREAM
-
 #if defined ARDUINO_ARCH_SAMD || defined ARDUINO_ARCH_RP2040 || defined ESP8266
+  // __has_include() macro only sees inside the sketch folder, so assume ArduinoJson as a default dependancy
   #include <Arduino.h>
-  #include <ArduinoJson.h>
   #include <assert.h>
-  #undef USE_STREAM_TO_STREAM
+  #include <ArduinoJson.h>
+  // also disable the "unstable" stream-to-stream function
   #define HAS_ARDUINOJSON
 #endif
 
 #if !defined HAS_ARDUINOJSON && __has_include(<Arduino.h>)
+  // esp32 __has_include() macro works outside the sketch folder, so it's possible to guess
   #define HAS_ARDUINOJSON
 #endif
 
+#if defined ESP32
+  // platform specific feature is unstable but recoverable with ESP32 devices family
+  #define USE_STREAM_TO_STREAM
+#endif
 
+
+// provide a default String::Stream reader/writer for internals
 class StringStream : public Stream
 {
 public:
@@ -67,7 +72,7 @@ private:
 };
 
 
-
+// the base class
 class YAMLParser
 {
 public:
@@ -99,6 +104,8 @@ private:
 
 
 #if defined HAS_ARDUINOJSON
+
+  // ArduinoJson friendly functions and derivated class
 
   #include <ArduinoJson.h>
 
@@ -184,6 +191,8 @@ private:
 
 #if __has_include(<cJSON.h>)
 
+  // cJSON friendly functions and derivated class
+
   #include <cJSON.h> //  built-in with esp32
 
   // deconstructors
@@ -232,5 +241,18 @@ private:
 
 #endif
 
-// this macro does not like to be defined early (especially before ArduinoJson.h is included)
-#define indent(indent_size) std::string(indent_size*2, ' ').c_str()
+#if defined ARDUINO_ARCH_SAMD
+  // using slow copy instead of a macro, because std::string is incomplete with samd core
+  static String _indent_str;
+  static const char* indent( size_t size )
+  {
+    _indent_str = "";
+    for( size_t i=0;i<size;i++ ) _indent_str += "  ";
+    return _indent_str.c_str();
+  }
+#else
+  // this macro does not like to be defined early (especially before ArduinoJson.h is included)
+  #define indent(indent_size) (std::string(indent_size*2, ' ')).c_str()
+#endif
+
+
