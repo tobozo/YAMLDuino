@@ -41,8 +41,14 @@ extern "C" {
 
 #if defined ARDUINO_ARCH_SAMD || defined ARDUINO_ARCH_RP2040 || defined ESP8266
   #include <Arduino.h>
+  #include <ArduinoJson.h>
   #include <assert.h>
   #undef USE_STREAM_TO_STREAM
+  #define HAS_ARDUINOJSON
+#endif
+
+#if !defined HAS_ARDUINOJSON && __has_include(<Arduino.h>)
+  #define HAS_ARDUINOJSON
 #endif
 
 
@@ -57,7 +63,6 @@ public:
   virtual size_t write(uint8_t c) { str += (char)c; return 1; }
 private:
   String &str;
-  //unsigned int length = 0;
   unsigned int pos;
 };
 
@@ -93,7 +98,7 @@ private:
 
 
 
-#if __has_include(<ArduinoJson.h>)
+#if defined HAS_ARDUINOJSON
 
   #include <ArduinoJson.h>
 

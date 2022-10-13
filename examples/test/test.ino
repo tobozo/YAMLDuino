@@ -1,6 +1,6 @@
 #include <ArduinoJson.h> // optional
 //#include <cJSON.h>       // implicit with esp32, otherwise optional
-#include <ArduinoYaml.h>
+#include <YAMLDuino.h>
 
 
 // sorry about the notation, but it looks nicer than chunk-splitting+quoting
@@ -77,8 +77,8 @@ void setup()
   YAMLParser::setLogLevel( YAML::LogLevelDebug ); // override sketch debug level (otherwise inherited)
 
 
-  #if __has_include(<ArduinoJson.h>)
-
+  #if defined HAS_ARDUINOJSON
+    #pragma message "Enabling ArduinoJson tests"
 
     YAML_LOG_n("YAML=>JSON and JSON=>YAML using ArduinoJson\n\n");
 
@@ -153,6 +153,7 @@ void setup()
 
 
     #if defined USE_STREAM_TO_STREAM // stream to stream unavailable on esp8266 (not enough memory)
+    #pragma message "Enabling ArduinoJson stream<=>stream tests"
     {
       YAML_LOG_n( "[TEST #%d] JSON stream to JsonObject to YAML stream -> serializeYml(stream_in, Serial):", test_number++ );
       String str_json = String( json_example_str );
@@ -171,6 +172,7 @@ void setup()
 
 
   #if __has_include(<cJSON.h>)
+    #pragma message "Enabling cJSON tests"
 
 
 
