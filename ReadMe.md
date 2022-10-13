@@ -1,21 +1,23 @@
-# esp32-yaml
+# ArduinoYaml
 
 This library is based on [libyaml](https://github.com/yaml/libyaml).
 It provides two ways to convert YAML strings to JSON (cJSON or ArduinoJson) objects.
 
-Fun fact: the yml parser from libyaml can also deserialize JSON.
+Supported platforms (some untested):
 
-Although there's obviously no use to have a JSON to JSON converter, it can offer a single endpoint for both types of inputs.
+- esp32
+- esp8266
+- samd
+- rp2040
 
-e.g. Provide either JSON or YML as input string, libyml understands both and will treat them as equal.
 
 ### Usage
 
 #### cJSON
 
 ```cpp
-#include <cJSON.h> // built-in with esp32
-#include <esp32-yaml.hpp>
+#include <cJSON.h> // note: cJSON is built-in with esp32
+#include <ArduinoYaml.h>
 
   // cJSON object to YAML string
   size_t serializeYml( cJSON* src_obj, String &dest_string );
@@ -36,7 +38,7 @@ e.g. Provide either JSON or YML as input string, libyml understands both and wil
 ```cpp
 
 #include <ArduinoJson.h>
-#include <esp32-yaml.hpp>
+#include <ArduinoYaml.h>
 
   // ArduinoJSON object to YAML string
   size_t serializeYml( JsonVariant src_obj, String &dest_string );
@@ -48,6 +50,10 @@ e.g. Provide either JSON or YML as input string, libyml understands both and wil
   DeserializationError deserializeYml( JsonObject &dest_obj, const char* src_yaml_str );
   // Deserialize YAML stream to ArduinoJSON object
   DeserializationError deserializeYml( JsonObject &dest_obj, Stream &src_stream );
+  // Deserialize YAML string to ArduinoJSON document
+  DeserializationError deserializeYml( JsonDocument &dest_doc, Stream &src_stream );
+  // Deserialize YAML string to ArduinoJSON document
+  DeserializationError deserializeYml( JsonDocument &dest_doc, const char *src_yaml_str) ;
 
 ```
 

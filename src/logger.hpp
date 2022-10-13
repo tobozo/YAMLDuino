@@ -41,7 +41,7 @@
 #define YAML_LOG_n(format, ...) YAML::LOG(__FILE__, __LINE__, YAML::LogLevelNone,    format, ##__VA_ARGS__)
 
 
-#ifdef ESP32
+#if defined ESP32
   #include "Esp.h" // bring esp32-arduino specifics to scope
   #define LOG_PRINTF log_printf // built-in esp32
   #define HEAP_AVAILABLE() ESP.getFreeHeap()
@@ -53,14 +53,20 @@
   #include <stdarg.h>
   // declare macros and functions needed by the logger
   #define LOG_PRINTF printf
-  #define HEAP_AVAILABLE() getFreeRam()
+  #ifdef ESP8266
+    #include "Esp.h" // bring esp8266-arduino specifics to scope
+    #define HEAP_AVAILABLE() ESP.getFreeHeap()
+  #else
+    #define HEAP_AVAILABLE() getFreeRam()
+    static int getFreeRam()
+    {
+      // implement your own
+      return 0;
+    }
+  #endif
   #define YAML_DEFAULT_LOG_LEVEL LogLevelWarning
   #define YAML_PATHNAME _pathToFileName
-  static int getFreeRam()
-  {
-    // implement your own
-    return 0;
-  }
+
   static const char * _pathToFileName(const char * path)
   {
     size_t i = 0, pos = 0;
@@ -157,7 +163,3 @@ namespace YAML
   }
 
 };
-
-
-
-

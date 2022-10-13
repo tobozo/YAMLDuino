@@ -1,6 +1,6 @@
 #include <ArduinoJson.h> // optional
 //#include <cJSON.h>       // implicit with esp32, otherwise optional
-#include <esp32-yaml.hpp>
+#include <ArduinoYaml.h>
 
 
 // sorry about the notation, but it looks nicer than chunk-splitting+quoting
@@ -83,28 +83,29 @@ void setup()
     YAML_LOG_n("YAML=>JSON and JSON=>YAML using ArduinoJson\n\n");
 
     {
-      YAML_LOG_n( "[TEST #%d] YAML stream to JsonObject -> deserializeYml(json_obj, yaml_stream):", test_number++ );
-      JsonObject json_obj;
+      YAML_LOG_n( "[TEST #%d] YAML stream to JsonObject -> deserializeYml(json_doc, yaml_stream):", test_number++ );
+      DynamicJsonDocument json_doc(yaml_str_size*2);
       String yaml_str = String( yaml_example_str );
       StringStream yaml_stream( yaml_str );
-      auto err = deserializeYml( json_obj, yaml_stream ); // deserialize yaml stream to JsonObject
+      auto err = deserializeYml( json_doc, yaml_stream ); // deserialize yaml stream to JsonDocument
       if( err ) {
         YAML_LOG_n("Unable to deserialize demo YAML to JsonObject: %s", err.c_str() );
         return;
       }
-      const size_t bytes_out = serializeJsonPretty( json_obj, Serial ); // print deserialized JsonObject
+      const size_t bytes_out = serializeJsonPretty( json_doc, Serial ); // print deserialized JsonObject
       YAML_LOG_n("[YAML=>JsonObject] yaml bytes in=%d, json bytes out=%d\n\n", yaml_str_size, bytes_out);
     }
 
 
     {
-      YAML_LOG_n( "[TEST #%d] YAML string to JsonObject -> deserializeYml(json_obj, yaml_example_str):", test_number++ );
-      JsonObject json_obj;
-      auto err = deserializeYml( json_obj, yaml_example_str ); // deserialize yaml string to JsonObject
+      YAML_LOG_n( "[TEST #%d] YAML string to JsonObject -> deserializeYml(json_doc, yaml_example_str):", test_number++ );
+      DynamicJsonDocument json_doc(yaml_str_size*2);
+      auto err = deserializeYml( json_doc, yaml_example_str ); // deserialize yaml string to JsonDocument
       if( err ) {
         YAML_LOG_n("Unable to deserialize demo YAML to JsonObject: %s", err.c_str() );
         return;
       }
+      JsonObject json_obj = json_doc.as<JsonObject>();
       const size_t bytes_out = serializeJsonPretty( json_obj, Serial ); // print deserialized JsonObject
       YAML_LOG_n("[YAML=>JsonObject] yaml bytes in=%d, json bytes out=%d\n\n", yaml_str_size, bytes_out);
     }
@@ -151,6 +152,7 @@ void setup()
     }
 
 
+    #if defined USE_STREAM_TO_STREAM // stream to stream unavailable on esp8266 (not enough memory)
     {
       YAML_LOG_n( "[TEST #%d] JSON stream to JsonObject to YAML stream -> serializeYml(stream_in, Serial):", test_number++ );
       String str_json = String( json_example_str );
@@ -158,6 +160,7 @@ void setup()
       const size_t bytes_out = serializeYml( stream_in, Serial );
       YAML_LOG_n("[JSON=>JsonObject=>YAML] json bytes in=%d, yaml bytes out=%d\n", json_str_size, bytes_out);
     }
+    #endif
 
 
     YAML_LOG_n("ArduinoJson tests complete");

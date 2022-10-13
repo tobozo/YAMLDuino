@@ -37,6 +37,15 @@ extern "C" {
 }
 
 
+#define USE_STREAM_TO_STREAM
+
+#if defined ARDUINO_ARCH_SAMD || defined ARDUINO_ARCH_RP2040 || defined ESP8266
+  #include <Arduino.h>
+  #include <assert.h>
+  #undef USE_STREAM_TO_STREAM
+#endif
+
+
 class StringStream : public Stream
 {
 public:
@@ -73,8 +82,8 @@ private:
   String _yaml_string;
   StringStream _yaml_stream = StringStream(_yaml_string);
   void loadDocument();
-  void handle_parser_error();
-  void handle_emitter_error();
+  void handle_parser_error(yaml_parser_t *parser);
+  void handle_emitter_error(yaml_emitter_t* emitter);
   yaml_document_t _document;
   yaml_emitter_t _emitter;
   yaml_parser_t _parser;
@@ -88,6 +97,7 @@ private:
 
   #include <ArduinoJson.h>
 
+  // deconstructors
   void deserializeYml_JsonObject( yaml_document_t* document, yaml_node_t* yamlNode, JsonObject &jsonNode, YAMLParser::JNestingType_t nt=YAMLParser::NONE, const char *nodename="", int depth=0 );
   size_t serializeYml_JsonVariant( JsonVariant root, Stream &out, int depth_level, YAMLParser::JNestingType_t nt );
 
@@ -131,26 +141,31 @@ private:
   size_t serializeYml( JsonVariant src_obj, String &dest_string );
   // ArduinoJSON object to YAML stream
   size_t serializeYml( JsonVariant src_obj, Stream &dest_stream );
-  // JSON stream to JsonObject to YAML stream
-  size_t serializeYml( Stream &json_src_stream, Stream &yml_dest_stream );
-  // Deserialize YAML string to ArduinoJSON object
+  #if defined USE_STREAM_TO_STREAM
+    // JSON stream to JsonObject to YAML stream
+    size_t serializeYml( Stream &json_src_stream, Stream &yml_dest_stream );
+  #endif
+
+  // Deserialize YAML string to ArduinoJSON document
+  DeserializationError deserializeYml( JsonDocument &dest_doc, Stream &src);
+  // Deserialize YAML stream to ArduinoJSON document
+  DeserializationError deserializeYml( JsonDocument &dest_doc, const char *src);
+
+  // [templated] Deserialize YAML string to ArduinoJSON object
   // DeserializationError deserializeYml( JsonObject &dest_obj, const char* src_yaml_str );
-  // Deserialize YAML stream to ArduinoJSON object
+  // [templated] Deserialize YAML stream to ArduinoJSON object
   // DeserializationError deserializeYml( JsonObject &dest_obj, Stream &src_stream );
   template<typename T>
   DeserializationError deserializeYml( JsonObject &dest_obj, T &src)
   {
     YAMLToArduinoJson *parser = new YAMLToArduinoJson();
     JsonObject tmpObj = parser->toJson( src ); // decode yaml stream/string
+    dest_obj = tmpObj;
     size_t capacity = parser->bytesWritten()*2;
-    if( capacity ==0 ) {
-      delete parser;
+    delete parser;
+    if( capacity == 0 ) {
       return DeserializationError::InvalidInput;
     }
-    DynamicJsonDocument tmpDoc( capacity ); // prepare object copy
-    tmpDoc.set( tmpObj ); // copy values to temporary document
-    dest_obj = tmpDoc.as<JsonObject>(); // copy temporary document into destination object
-    delete parser;
     if( dest_obj.isNull() ) {
       return DeserializationError::NoMemory;
     }
@@ -166,6 +181,7 @@ private:
 
   #include <cJSON.h> //  built-in with esp32
 
+  // deconstructors
   cJSON* deserializeYml_cJSONObject(yaml_document_t * document, yaml_node_t * yamlNode);
   size_t serializeYml_cJSONObject( cJSON *root, Stream &out, int depth, YAMLParser::JNestingType_t nt );
 
@@ -194,12 +210,10 @@ private:
   // cJSON object to YAML stream
   size_t serializeYml( cJSON* src_obj, Stream &dest_stream );
 
-  // YAML string to cJSON object
+  // [templated] YAML string to cJSON object
   // int deserializeYml( cJSON* dest_obj, const char* src_yaml_str );
-  // YAML stream to cJSON object
+  // [templated] YAML stream to cJSON object
   // int deserializeYml( cJSON* dest_obj, Stream &src_stream );
-
-  // YAML string/stream to cJSON object
   template<typename T>
   int deserializeYml( cJSON* dest_obj, T &src_yaml )
   {
@@ -212,8 +226,6 @@ private:
 
 
 #endif
-
-
 
 // this macro does not like to be defined early (especially before ArduinoJson.h is included)
 #define indent(indent_size) std::string(indent_size*2, ' ').c_str()
