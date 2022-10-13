@@ -216,8 +216,7 @@ void YAMLParser::handle_emitter_error(yaml_emitter_t *e)
 
 
 
-#if __has_include(<ArduinoJson.h>)
-
+#if defined HAS_ARDUINOJSON
 
   // yaml_node_t deconstructor => JsonObject
   void deserializeYml_JsonObject( yaml_document_t* document, yaml_node_t* yamlNode, JsonObject &jsonNode, YAMLParser::JNestingType_t nt, const char *nodename, int depth )
