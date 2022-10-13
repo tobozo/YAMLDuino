@@ -1,5 +1,5 @@
 #include <ArduinoJson.h> // optional
-#include <cJSON.h>       // implicit with esp32, otherwise optional
+//#include <cJSON.h>       // implicit with esp32, otherwise optional
 #include <esp32-yaml.hpp>
 
 
