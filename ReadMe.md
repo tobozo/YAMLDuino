@@ -1,7 +1,8 @@
-# ArduinoYaml
+# ArduinoYaml A.K.A YAMLDuino
 
-This library is based on [libyaml](https://github.com/yaml/libyaml).
-It provides two ways to convert YAML strings to JSON (cJSON or ArduinoJson) objects.
+This arduino library is based on [libyaml](https://github.com/yaml/libyaml).
+
+It provides several ways to serialize/deserialize YAML<=>JSON using cJSON or ArduinoJson objects.
 
 Supported platforms (some untested):
 
@@ -23,7 +24,7 @@ Supported platforms (some untested):
   size_t serializeYml( cJSON* src_obj, String &dest_string );
   // cJSON object to YAML stream
   size_t serializeYml( cJSON* src_obj, Stream &dest_stream );
-  // JSON stream to cJSON object to YAML stream
+  // JSON stream to cJSON object to YAML stream, disabled on some architectures
   size_t serializeYml( Stream &json_src_stream, Stream &yml_dest_stream );
 
   // YAML string to cJSON object
@@ -44,7 +45,7 @@ Supported platforms (some untested):
   size_t serializeYml( JsonVariant src_obj, String &dest_string );
   // ArduinoJSON object to YAML stream
   size_t serializeYml( JsonVariant src_obj, Stream &dest_stream );
-  // JSON stream to JsonObject to YAML stream
+  // JSON stream to JsonObject to YAML stream, disabled on some architectures
   size_t serializeYml( Stream &json_src_stream, Stream &yml_dest_stream );
   // Deserialize YAML string to ArduinoJSON object
   DeserializationError deserializeYml( JsonObject &dest_obj, const char* src_yaml_str );
