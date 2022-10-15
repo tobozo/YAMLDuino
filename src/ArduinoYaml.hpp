@@ -45,7 +45,7 @@ extern "C" {
   #define HAS_ARDUINOJSON
 #endif
 
-#if !defined HAS_ARDUINOJSON && __has_include(<Arduino.h>)
+#if !defined HAS_ARDUINOJSON && __has_include(<ArduinoJson.h>)
   // esp32 __has_include() macro works outside the sketch folder, so it's possible to guess
   #define HAS_ARDUINOJSON
 #endif
