@@ -109,7 +109,9 @@ YAMLParser::~YAMLParser()
 {
   yaml_parser_delete(&_parser);
   yaml_emitter_delete(&_emitter);
-  yaml_document_delete(&_document);
+  #if !defined ESP8266 // TODO: fix mem leak with esp8266
+    yaml_document_delete(&_document);
+  #endif
 }
 
 
@@ -219,35 +221,32 @@ void YAMLParser::handle_emitter_error(yaml_emitter_t *e)
 
 #if defined HAS_ARDUINOJSON
 
+
   // yaml_node_t deconstructor => JsonObject
   void deserializeYml_JsonObject( yaml_document_t* document, yaml_node_t* yamlNode, JsonObject &jsonNode, YAMLParser::JNestingType_t nt, const char *nodename, int depth )
   {
-    // Prevent "use after free" situations in JsonObject key
-    // ArduinoJson only aliases const char* so use char* to force a copy
-    char* _nodename = (char*)malloc( strlen(nodename)+1 );
-    strcpy(_nodename, nodename);
-
     switch (yamlNode->type) {
-      case YAML_NO_NODE: /*YAML_LOG_v("YAML_NO_NODE");*/ break;
       case YAML_SCALAR_NODE:
       {
         double number;
         char* scalar;
         char* end;
-        bool is_string;
         scalar = (char *)yamlNode->data.scalar.value;
         number = strtod(scalar, &end);
-        is_string = (end == scalar || *end);
+        bool is_string = (end == scalar || *end);
         switch( nt ) {
           case YAMLParser::SEQ_KEY:
           {
-            if(is_string) jsonNode[_nodename].add( scalar );
-            else          jsonNode[_nodename].add( number );
+            JsonArray array = jsonNode[nodename];
+            if(is_string) array.add( scalar );
+            else          array.add( number );
+            //YAML_LOG_d("[SEQ][%s][%d] => %s(%s)", nodename, array.size()-1, is_string?"string":"number", is_string?scalar:String(number).c_str() );
           }
           break;
           case YAMLParser::MAP_KEY:
-            if(is_string) jsonNode[_nodename] = scalar;
-            else          jsonNode[_nodename] = number;
+            if(is_string) jsonNode[nodename] = scalar;
+            else          jsonNode[nodename] = number;
+            //YAML_LOG_d("[MAP][%d][%s] => %s(%s)", jsonNode.size()-1, nodename, is_string?"string":"number", is_string?scalar:String(number).c_str() );
           break;
           default: YAML_LOG_e("Error invalid nesting type"); break;
         }
@@ -255,27 +254,27 @@ void YAMLParser::handle_emitter_error(yaml_emitter_t *e)
       break;
       case YAML_SEQUENCE_NODE:
       {
-        jsonNode.createNestedArray(_nodename);
+        JsonArray tmpArray = jsonNode.createNestedArray(nodename);
         yaml_node_item_t * item_i;
+        yaml_node_t *itemNode;
+        String _nodename;
         for (item_i = yamlNode->data.sequence.items.start; item_i < yamlNode->data.sequence.items.top; ++item_i) {
-          yaml_node_t *itemNode = yaml_document_get_node(document, *item_i);
+          itemNode = yaml_document_get_node(document, *item_i);
           if( itemNode->type == YAML_MAPPING_NODE ) { // array of anonymous objects
-            JsonObject tmpObj = jsonNode[_nodename].createNestedObject(); // insert empty nested object
-            deserializeYml_JsonObject( document, itemNode, tmpObj, YAMLParser::SEQ_KEY, "root", depth+1 ); // go recursive using temporary node name
-            jsonNode[_nodename][jsonNode[_nodename].size()-1].set( tmpObj["root"] ); // remove temporary name and make object anonymous
+            JsonObject tmpObj = tmpArray.createNestedObject(); // insert empty nested object
+            _nodename = ROOT_NODE + String( nodename ) + String( tmpArray.size() ); // generate a temporary nodename
+            deserializeYml_JsonObject( document, itemNode, tmpObj, YAMLParser::SEQ_KEY, _nodename.c_str(), depth+1 ); // go recursive using temporary node name
+            jsonNode[nodename][tmpArray.size()-1] = tmpObj[_nodename]; // remove temporary name and make object anonymous
           } else { // array of sequences or values
-            deserializeYml_JsonObject( document, itemNode, jsonNode, YAMLParser::SEQ_KEY, _nodename, depth+1 );
+            deserializeYml_JsonObject( document, itemNode, jsonNode, YAMLParser::SEQ_KEY, nodename, depth+1 );
           }
         }
+        //YAML_LOG_d("[ARR][%s] has %d items", nodename, tmpArray.size() );
       }
       break;
       case YAML_MAPPING_NODE:
       {
-        jsonNode.createNestedObject(_nodename);
-        JsonObject tmpObj = jsonNode[_nodename];
-        if( nt == YAMLParser::NONE ) {
-          jsonNode = tmpObj; // topmost object, nodename is empty so apply reparenting
-        }
+        JsonObject tmpNode = jsonNode.createNestedObject(nodename);
         yaml_node_pair_t* pair_i;
         yaml_node_t* key;
         yaml_node_t* value;
@@ -286,17 +285,19 @@ void YAMLParser::handle_emitter_error(yaml_emitter_t *e)
             YAML_LOG_w("Mapping key is not scalar (line %lu, val=%s).", key->start_mark.line, (const char*)value->data.scalar.value);
             continue;
           }
-          deserializeYml_JsonObject( document, value, tmpObj, YAMLParser::MAP_KEY, (const char*)key->data.scalar.value, depth+1 );
+          deserializeYml_JsonObject( document, value, tmpNode, YAMLParser::MAP_KEY, (const char*)key->data.scalar.value, depth+1 );
+        }
+        if( nt == YAMLParser::NONE ) {
+          //YAML_LOG_d("Root node has %d items", jsonNode.size() );
+        } else {
+          //YAML_LOG_d("[KEY][%s] has %d items", nodename, jsonNode.size() );
         }
       }
       break;
-      default:
-        YAML_LOG_w("Unknown node type (line %lu).", yamlNode->start_mark.line);
-      break;
+      case YAML_NO_NODE: YAML_LOG_e("YAML_NO_NODE"); break;
+      default: YAML_LOG_w("Unknown node type (line %lu).", yamlNode->start_mark.line); break;
     }
-    free(_nodename);
   }
-
 
   // JsonVariant deconstructor => YAML stream
   size_t serializeYml_JsonVariant( JsonVariant root, Stream &out, int depth, YAMLParser::JNestingType_t nt )
@@ -362,7 +363,7 @@ void YAMLParser::handle_emitter_error(yaml_emitter_t *e)
   {
     YAMLToArduinoJson *parser = new YAMLToArduinoJson();
     JsonObject tmpObj = parser->toJson( src ); // decode yaml stream/string
-    dest_doc.set( tmpObj );
+    dest_doc.set( tmpObj[ROOT_NODE] );
     delete parser;
     return DeserializationError::Ok;
   }
@@ -372,7 +373,7 @@ void YAMLParser::handle_emitter_error(yaml_emitter_t *e)
   {
     YAMLToArduinoJson *parser = new YAMLToArduinoJson();
     JsonObject tmpObj = parser->toJson( src ); // decode yaml stream/string
-    dest_doc.set( tmpObj );
+    dest_doc.set( tmpObj[ROOT_NODE] );
     delete parser;
     return DeserializationError::Ok;
   }

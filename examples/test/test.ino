@@ -25,7 +25,7 @@ blah:
       prop4: wat
   integer: 12345
   float: 12.3323
-  inline_json_for_the_haters: { "hello":"json", "nested":[3,2,1,"moon"] }
+  inline_json_for_the_haters: { "hello":"json", "nested":[3,2,"1","moon"] }
 whatever:
   nope: ["n","o","p","e"]
 last: "true"
@@ -56,7 +56,7 @@ const char* json_example_str = R"_JSON_STRING_(
     ],
     "integer": 12345,
     "float": 12.3323,
-    "inline_json_for_the_haters": { "hello": "json", "nested": [ 3, 2, 1, "moon" ] }
+    "inline_json_for_the_haters": { "hello": "json", "nested": [ 3, 2, "1", "moon" ] }
   },
   "whatever": { "nope": [ "n", "o", "p", "e" ] },
   "last": "true"

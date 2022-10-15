@@ -110,15 +110,16 @@ private:
   #include <ArduinoJson.h>
 
   // deconstructors
-  void deserializeYml_JsonObject( yaml_document_t* document, yaml_node_t* yamlNode, JsonObject &jsonNode, YAMLParser::JNestingType_t nt=YAMLParser::NONE, const char *nodename="", int depth=0 );
+  #define ROOT_NODE "_root_"
+  void deserializeYml_JsonObject( yaml_document_t* document, yaml_node_t* yamlNode, JsonObject &jsonNode, YAMLParser::JNestingType_t nt=YAMLParser::NONE, const char *nodename=ROOT_NODE, int depth=0 );
   size_t serializeYml_JsonVariant( JsonVariant root, Stream &out, int depth_level, YAMLParser::JNestingType_t nt );
 
   class YAMLToArduinoJson : public YAMLParser
   {
   public:
     YAMLToArduinoJson() {};
-    ~YAMLToArduinoJson() { if( _doc) delete _doc; };
-    void setJsonDocument( const size_t capacity ) { _doc = new DynamicJsonDocument(capacity); _root = _doc->to<JsonObject>(); };
+    ~YAMLToArduinoJson() { if( _doc) delete _doc; }
+    void setJsonDocument( const size_t capacity ) { _doc = new DynamicJsonDocument(capacity); _root = _doc->to<JsonObject>(); /*_root.createNestedObject(ROOT_NODE);*/ }
     JsonObject& getJsonObject() { return _root; }
     void toJson() {
       yaml_node_t * node;
@@ -126,6 +127,7 @@ private:
         YAML_LOG_e("No destination JsonObject defined.");
         return;
       }
+      // YAML_LOG_i("JsonDocument capacity: %d (%d/%d yaml r/w)", _doc->capacity(), bytesRead(), bytesWritten() );
       // dafuq is that if( a=b, !a ) notation ??
       if (node = yaml_document_get_root_node(getDocument()), !node) {
         YAML_LOG_e("No document defined.");
@@ -171,8 +173,7 @@ private:
   DeserializationError deserializeYml( JsonObject &dest_obj, T &src)
   {
     YAMLToArduinoJson *parser = new YAMLToArduinoJson();
-    JsonObject tmpObj = parser->toJson( src ); // decode yaml stream/string
-    dest_obj = tmpObj;
+    dest_obj = parser->toJson( src ); // decode yaml stream/string
     size_t capacity = parser->bytesWritten()*2;
     delete parser;
     if( capacity == 0 ) {
