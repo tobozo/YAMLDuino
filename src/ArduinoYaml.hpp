@@ -36,13 +36,24 @@ extern "C" {
   #include "libyaml/yaml.h" // https://github.com/yaml/libyaml
 }
 
+
+#if defined ESP32
+  #define USE_STREAM_TO_STREAM
+  #define HAS_CJSON
+  #define HAS_ARDUINOJSON
+#endif
+
+
 #if defined ARDUINO_ARCH_SAMD || defined ARDUINO_ARCH_RP2040 || defined ESP8266
   // __has_include() macro only sees inside the sketch folder, so assume ArduinoJson as a default dependancy
   #include <Arduino.h>
   #include <assert.h>
   #include <ArduinoJson.h>
-  // also disable the "unstable" stream-to-stream function
   #define HAS_ARDUINOJSON
+  // also disable the "unstable" stream-to-stream function for low memory platforms
+  #if !defined ARDUINO_ARCH_SAMD
+    #define USE_STREAM_TO_STREAM
+  #endif
 #endif
 
 #if !defined HAS_ARDUINOJSON && __has_include(<ArduinoJson.h>)
@@ -50,10 +61,11 @@ extern "C" {
   #define HAS_ARDUINOJSON
 #endif
 
-#if defined ESP32
-  // platform specific feature is unstable but recoverable with ESP32 devices family
-  #define USE_STREAM_TO_STREAM
+#if !defined HAS_CJSON && __has_include(<cJSON.h>)
+  // esp32 __has_include() macro works outside the sketch folder, so it's possible to guess
+  #define HAS_CJSON
 #endif
+
 
 
 // provide a default String::Stream reader/writer for internals
@@ -85,12 +97,13 @@ public:
   size_t bytesWritten() { return _bytes_written; }
   size_t bytesRead()    { return _bytes_read; }
   String getYamlString() { return _yaml_string; }
+  void setYamlStream( Stream* stream ) { _yaml_stream = stream; }
   enum JNestingType_t { NONE, SEQ_KEY, MAP_KEY };
 private:
   size_t _bytes_read;
   size_t _bytes_written;
   String _yaml_string;
-  StringStream _yaml_stream = StringStream(_yaml_string);
+  Stream *_yaml_stream = new StringStream(_yaml_string);
   void loadDocument();
   void handle_parser_error(yaml_parser_t *parser);
   void handle_emitter_error(yaml_emitter_t* emitter);
@@ -101,6 +114,11 @@ private:
 };
 
 
+
+#if defined USE_STREAM_TO_STREAM
+  // JSON stream to JsonObject to YAML stream
+  size_t serializeYml( Stream &json_src_stream, Stream &yml_dest_stream );
+#endif
 
 
 #if defined HAS_ARDUINOJSON
@@ -155,10 +173,6 @@ private:
   size_t serializeYml( JsonVariant src_obj, String &dest_string );
   // ArduinoJSON object to YAML stream
   size_t serializeYml( JsonVariant src_obj, Stream &dest_stream );
-  #if defined USE_STREAM_TO_STREAM
-    // JSON stream to JsonObject to YAML stream
-    size_t serializeYml( Stream &json_src_stream, Stream &yml_dest_stream );
-  #endif
 
   // Deserialize YAML string to ArduinoJSON document
   DeserializationError deserializeYml( JsonDocument &dest_doc, Stream &src);
@@ -174,6 +188,7 @@ private:
   {
     YAMLToArduinoJson *parser = new YAMLToArduinoJson();
     dest_obj = parser->toJson( src ); // decode yaml stream/string
+    dest_obj = dest_obj[ROOT_NODE];
     size_t capacity = parser->bytesWritten()*2;
     delete parser;
     if( capacity == 0 ) {
@@ -186,11 +201,11 @@ private:
   }
 
 
-#endif
+#endif // HAS_ARDUINOJSON
 
 
 
-#if __has_include(<cJSON.h>)
+#if defined HAS_CJSON
 
   // cJSON friendly functions and derivated class
 
@@ -207,7 +222,7 @@ private:
     YAMLToCJson() {};
     ~YAMLToCJson() { if(_root) cJSON_Delete(_root); };
     //void toJson();
-    cJSON *toJson( yaml_document_t * document ){
+    cJSON *toJson( yaml_document_t * document ) {
       yaml_node_t * node;
       if (node = yaml_document_get_root_node(document), !node) { YAML_LOG_w("No document defined."); return NULL; }
       return deserializeYml_cJSONObject(document, node);
@@ -240,20 +255,5 @@ private:
   }
 
 
-#endif
-
-#if defined ARDUINO_ARCH_SAMD
-  // using slow copy instead of a macro, because std::string is incomplete with samd core
-  static String _indent_str;
-  static const char* indent( size_t size )
-  {
-    _indent_str = "";
-    for( size_t i=0;i<size;i++ ) _indent_str += "  ";
-    return _indent_str.c_str();
-  }
-#else
-  // this macro does not like to be defined early (especially before ArduinoJson.h is included)
-  #define indent(indent_size) (std::string(indent_size*2, ' ')).c_str()
-#endif
-
+#endif // HAS_CJSON
 
