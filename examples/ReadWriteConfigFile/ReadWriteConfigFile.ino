@@ -5,10 +5,10 @@
 
 const char* yaml_example_str = R"_YAML_STRING_(
 
-my_setting: "false"
+my_setting: false
 
-flag1: "true"
-flag2: "true"
+flag1: true
+flag2: true
 
 settings1:
   just_a_string: "I am a string"
@@ -59,7 +59,7 @@ bool loadYamlConfig()
     return false;
   }
   myConfig = json_doc.as<JsonObject>();
-  current_value = myConfig[nodename].as<String>() == "true";
+  current_value = myConfig[nodename].as<bool>();
   //serializeJson( myConfig, Serial );
   //Serial.println();
   return true;
@@ -86,8 +86,7 @@ bool toggleYamlProperty()
   //Serial.printf("Initial value: [%s] = %s\n", nodename, current_value ? "true" : "false" );
   current_value = !current_value;
   Serial.printf("New value: [%s] = %s\n", nodename, current_value ? "true" : "false" );
-  // ArduinoJson @bool is borked up so we use a string
-  myConfig[nodename] = current_value ? "true" : "false";
+  myConfig[nodename] = current_value;
   return saveYamlConfig();
 }
 

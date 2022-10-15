@@ -30,6 +30,71 @@
 
 #include "ArduinoYaml.hpp"
 
+
+String _indent_str;
+const char* indent( size_t size )
+{
+  _indent_str = "";
+  for( size_t i=0;i<size;i++ ) _indent_str += "  ";
+  return _indent_str.c_str();
+}
+
+
+
+// YAML is very inclusive with booleans :-)
+// https://yaml.org/type/bool.html
+
+
+bool string_has_truthy_value( String &_scalar )
+{
+  return _scalar == "y"    ||  _scalar == "Y"    ||  _scalar == "yes" || _scalar == "Yes" || _scalar == "YES"
+     ||  _scalar == "true" ||  _scalar == "True" ||  _scalar == "TRUE"
+     ||  _scalar == "on"   ||  _scalar == "On"   ||  _scalar == "ON";
+}
+
+
+bool string_has_falsy_value( String &_scalar )
+{
+  return _scalar == "n"     ||  _scalar == "N"     ||  _scalar == "no" || _scalar == "No" || _scalar == "NO"
+     ||  _scalar == "false" ||  _scalar == "False" ||  _scalar == "FALSE"
+     ||  _scalar == "off"   ||  _scalar == "Off"   ||  _scalar == "OFF";
+}
+
+
+bool string_has_bool_value( String &_scalar, bool *value_out )
+{
+  bool has_truthy = string_has_truthy_value(_scalar);
+  bool has_falsy  = string_has_falsy_value(_scalar);
+  if( has_truthy || has_falsy ) {
+    *value_out = has_truthy;
+    return true;
+  }
+  return false;
+}
+
+
+bool yaml_node_is_bool( yaml_node_t * yamlNode, bool *value_out )
+{
+  switch (yamlNode->data.scalar.style) {
+    case YAML_PLAIN_SCALAR_STYLE:
+    {
+      String _scalar = String( (char*)yamlNode->data.scalar.value );
+      if( string_has_bool_value(_scalar, value_out) ) {
+        return true;
+      }
+    }
+    break;
+    case YAML_SINGLE_QUOTED_SCALAR_STYLE: /*YAML_LOG_e(" '")*/; break;
+    case YAML_DOUBLE_QUOTED_SCALAR_STYLE: /*YAML_LOG_e(" \"")*/; break;
+    case YAML_LITERAL_SCALAR_STYLE: /*YAML_LOG_e(" |")*/; break;
+    case YAML_FOLDED_SCALAR_STYLE: /*YAML_LOG_e(" >")*/; break;
+    case YAML_ANY_SCALAR_STYLE: /*abort(); */ break;
+  }
+  return false;
+
+}
+
+
 // used for internals, mainly because yaml_emitter_dump() destroys data after emitting
 int yaml_copy_document(yaml_document_t *dest, yaml_document_t *src)
 {
@@ -109,9 +174,7 @@ YAMLParser::~YAMLParser()
 {
   yaml_parser_delete(&_parser);
   yaml_emitter_delete(&_emitter);
-  #if !defined ESP8266 // TODO: fix mem leak with esp8266
-    yaml_document_delete(&_document);
-  #endif
+  yaml_document_delete(&_document);
 }
 
 
@@ -163,7 +226,9 @@ void YAMLParser::loadDocument()
 {
   yaml_document_t document;
   assert(yaml_emitter_initialize(&_emitter));
-  yaml_stream_handler_data_t shd = { &_yaml_stream, &_bytes_written };
+  yaml_stream_handler_data_t shd = { _yaml_stream, &_bytes_written };
+  yaml_emitter_set_canonical(&_emitter, 1);
+  yaml_emitter_set_unicode(&_emitter, 1);
   yaml_emitter_set_output(&_emitter, &_yaml_stream_writer, &shd);
   yaml_emitter_open(&_emitter);
   if (!yaml_parser_load(&_parser, &document)) {
@@ -174,8 +239,10 @@ void YAMLParser::loadDocument()
   assert( yaml_copy_document(&_document, &document) ); // copy into local document for later parsing
   assert( yaml_emitter_dump(&_emitter, &document) ); // dump to emitter for output length evaluation
   _emitter_delete:
+    yaml_parser_delete(&_parser);
     yaml_emitter_close(&_emitter);
     yaml_emitter_delete(&_emitter);
+    yaml_document_delete(&document);
 }
 
 
@@ -219,6 +286,7 @@ void YAMLParser::handle_emitter_error(yaml_emitter_t *e)
 
 
 
+
 #if defined HAS_ARDUINOJSON
 
 
@@ -233,19 +301,26 @@ void YAMLParser::handle_emitter_error(yaml_emitter_t *e)
         char* end;
         scalar = (char *)yamlNode->data.scalar.value;
         number = strtod(scalar, &end);
+        bool is_bool = false;
+        bool bool_value = false;
         bool is_string = (end == scalar || *end);
+        if( is_string && yaml_node_is_bool( yamlNode, &bool_value ) ) {
+          is_bool = true;
+        }
         switch( nt ) {
           case YAMLParser::SEQ_KEY:
           {
             JsonArray array = jsonNode[nodename];
-            if(is_string) array.add( scalar );
-            else          array.add( number );
+            if(is_bool)        array.add( bool_value );
+            else if(is_string) array.add( scalar );
+            else               array.add( number );
             //YAML_LOG_d("[SEQ][%s][%d] => %s(%s)", nodename, array.size()-1, is_string?"string":"number", is_string?scalar:String(number).c_str() );
           }
           break;
           case YAMLParser::MAP_KEY:
-            if(is_string) jsonNode[nodename] = scalar;
-            else          jsonNode[nodename] = number;
+            if(is_bool)        jsonNode[nodename] = bool_value;
+            else if(is_string) jsonNode[nodename] = scalar;
+            else               jsonNode[nodename] = number;
             //YAML_LOG_d("[MAP][%d][%s] => %s(%s)", jsonNode.size()-1, nodename, is_string?"string":"number", is_string?scalar:String(number).c_str() );
           break;
           default: YAML_LOG_e("Error invalid nesting type"); break;
@@ -299,6 +374,7 @@ void YAMLParser::handle_emitter_error(yaml_emitter_t *e)
     }
   }
 
+
   // JsonVariant deconstructor => YAML stream
   size_t serializeYml_JsonVariant( JsonVariant root, Stream &out, int depth, YAMLParser::JNestingType_t nt )
   {
@@ -346,20 +422,19 @@ void YAMLParser::handle_emitter_error(yaml_emitter_t *e)
     return serializeYml_JsonVariant( src_obj, dest_stream, 0, YAMLParser::NONE );
   }
 
-  #if defined USE_STREAM_TO_STREAM
+  #if defined USE_STREAM_TO_STREAM && !defined HAS_CJSON
     size_t serializeYml( Stream &json_src_stream, Stream &yaml_dest_stream )
     {
-      JsonObject src_obj;
-      if ( deserializeYml( src_obj, json_src_stream ) != DeserializationError::Ok ) {
-        YAML_LOG_e("unable to deserialize to temporary JsonObject, aborting");
-        return 0;
-      }
-      return serializeYml_JsonVariant( src_obj, yaml_dest_stream, 0, YAMLParser::NONE );
+      YAMLToArduinoJson *parser = new YAMLToArduinoJson();
+      JsonObject tmpObj = parser->toJson( json_src_stream ); // decode yaml stream/string
+      auto ret = serializeYml_JsonVariant( tmpObj[ROOT_NODE], yaml_dest_stream, 0, YAMLParser::NONE );
+      delete parser;
+      return ret;
     }
   #endif
 
 
-  DeserializationError deserializeYml( JsonDocument &dest_doc, Stream &src)
+  DeserializationError deserializeYml( JsonDocument &dest_doc, Stream &src )
   {
     YAMLToArduinoJson *parser = new YAMLToArduinoJson();
     JsonObject tmpObj = parser->toJson( src ); // decode yaml stream/string
@@ -369,7 +444,7 @@ void YAMLParser::handle_emitter_error(yaml_emitter_t *e)
   }
 
 
-  DeserializationError deserializeYml( JsonDocument &dest_doc, const char *src)
+  DeserializationError deserializeYml( JsonDocument &dest_doc, const char *src )
   {
     YAMLToArduinoJson *parser = new YAMLToArduinoJson();
     JsonObject tmpObj = parser->toJson( src ); // decode yaml stream/string
@@ -379,13 +454,13 @@ void YAMLParser::handle_emitter_error(yaml_emitter_t *e)
   }
 
 
-#endif // __has_include(<ArduinoJson.h>)
+#endif // HAS_ARDUINOJSON
 
 
 
 
 
-#if __has_include(<cJSON.h>)
+#if defined HAS_CJSON
 
 
   // yaml_node_t deconstructor => cJSON Object
@@ -406,7 +481,14 @@ void YAMLParser::handle_emitter_error(yaml_emitter_t *e)
         char * end;
         scalar = (char *)yamlNode->data.scalar.value;
         number = strtod(scalar, &end);
-        object = (end == scalar || *end) ? cJSON_CreateString(scalar) : cJSON_CreateNumber(number);
+        if( (end == scalar || *end) ) { // string or bool
+          bool bool_value;
+          if( yaml_node_is_bool( yamlNode, &bool_value ) ) {
+            object = cJSON_CreateBool( bool_value );
+          } else {
+            object = cJSON_CreateString( scalar );
+          }
+        } else object = cJSON_CreateNumber(number);
       }
       break;
       case YAML_SEQUENCE_NODE:
@@ -467,10 +549,17 @@ void YAMLParser::handle_emitter_error(yaml_emitter_t *e)
         current_item = current_item->next;
       }
     } else {
+      // TODO: figure out how to get cJSON value without quotes
       char *value = cJSON_PrintUnformatted( root );
       if( !value ) {
         YAML_LOG_e("node has no value!");
         return 0;
+      }
+      size_t value_len = strlen(value);
+      if( ( value_len > 0 && value[0]=='"'  && value[value_len-1]=='"'  ) || ( value_len > 0 && value[0]=='\'' && value[value_len-1]=='\'' ) ) {
+        // remove quotes from string
+        memmove( value, value+1, value_len-1 );
+        value[value_len-2] = '\0';
       }
       switch(nt) {
         case YAMLParser::SEQ_KEY:
@@ -503,4 +592,22 @@ void YAMLParser::handle_emitter_error(yaml_emitter_t *e)
   }
 
 
-#endif // __has_include(<cJSON.h>)
+  #if defined USE_STREAM_TO_STREAM
+    size_t serializeYml( Stream &json_src_stream, Stream &yaml_dest_stream )
+    {
+      cJSON* objPtr = cJSON_Parse("{}"); // quick allocation of empty object
+      if ( !deserializeYml( objPtr, json_src_stream ) ) {
+        YAML_LOG_e("unable to deserialize to temporary cJSONObject, aborting");
+        cJSON_Delete( objPtr );
+        return 0;
+      }
+      size_t bytes_written = serializeYml_cJSONObject( objPtr, yaml_dest_stream, 0, YAMLParser::NONE );
+      cJSON_Delete( objPtr );
+      return bytes_written;
+    }
+  #endif
+
+
+
+
+#endif // HAS_CJSON
