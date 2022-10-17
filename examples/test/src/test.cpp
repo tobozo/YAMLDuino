@@ -12,6 +12,15 @@ blah:
     omg I'm multiline!
     whelp "I'm quoted" ? ! () { } "\t\r\n"
     slash\ed
+  array_of_indexed_multiline_strings:
+    - multiline_string1: |
+        one !
+        two "?"
+        three ...
+    - multiline_string2: |
+        four @'"]
+        five [[(()
+        six +-_%^&
   just_a_string: "I am a string"
   array_of_strings:
 # some unindented comments
@@ -44,6 +53,7 @@ const char* json_example_str = R"_JSON_STRING_(
   "fourth": false,
   "blah": {
     "multiline_string": "omg I'm multiline!\nwhelp \"I'm quoted\" ? ! () { } \"\\t\\r\\n\"\nslash\\ed",
+    "array_of_indexed_multiline_strings": [{"multiline_string1": "one !\ntwo \"?\"\nthree ..."},{"multiline_string2": "four @'\"]\nfive [[(()\nsix +-_%^&"}],
     "just_a_string": "I am a string",
     "array_of_strings": ["oops", "meh" ],
     "same_array_of_strings": [ "oops", "meh" ],
