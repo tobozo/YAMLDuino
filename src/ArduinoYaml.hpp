@@ -38,14 +38,12 @@ extern "C" {
 
 
 #if defined ESP32
-  #define USE_STREAM_TO_STREAM
-  #define HAS_CJSON
-  #define HAS_ARDUINOJSON
+  #define HAS_CJSON // is built-in
+  #define USE_STREAM_TO_STREAM // has enough memory
 #endif
 
-
 #if defined ARDUINO_ARCH_SAMD || defined ARDUINO_ARCH_RP2040 || defined ESP8266
-  // __has_include() macro only sees inside the sketch folder, so assume ArduinoJson as a default dependancy
+  // those platforms don't have built-in cJSON so assume ArduinoJson is in use
   #include <Arduino.h>
   #include <assert.h>
   #include <ArduinoJson.h>
@@ -66,6 +64,13 @@ extern "C" {
   #define HAS_CJSON
 #endif
 
+#if defined USE_STREAM_TO_STREAM
+  #if defined HAS_CJSON && !defined HAS_ARDUINOJSON // default to cJSON only if ArduinoJson not used
+    #define STREAM_TO_STREAM "cJSON"
+  #else
+    #define STREAM_TO_STREAM "ArduinoJSON"
+  #endif
+#endif
 
 
 // provide a default String::Stream reader/writer for internals
@@ -73,6 +78,7 @@ class StringStream : public Stream
 {
 public:
   StringStream(String &s) : str(s), pos(0) {}
+  virtual ~StringStream() { };
   virtual int available() { return str.length() - pos; }
   virtual int read() { return pos < str.length() ? str[pos++] : -1; }
   virtual int peek() { return pos < str.length() ? str[pos] : -1; }
@@ -88,7 +94,7 @@ private:
 class YAMLParser
 {
 public:
-  YAMLParser() { };
+  YAMLParser();
   ~YAMLParser();
   void load( const char* yaml_or_json_str );
   void load( Stream &yaml_or_json_stream );
@@ -103,7 +109,8 @@ private:
   size_t _bytes_read;
   size_t _bytes_written;
   String _yaml_string;
-  Stream *_yaml_stream = new StringStream(_yaml_string);
+  Stream *_yaml_stream;
+  StringStream *_yaml_string_stream_ptr;
   void loadDocument();
   void handle_parser_error(yaml_parser_t *parser);
   void handle_emitter_error(yaml_emitter_t* emitter);
@@ -113,7 +120,7 @@ private:
   yaml_event_t _event;
 };
 
-
+typedef YAMLParser::JNestingType_t JNestingType_t;
 
 #if defined USE_STREAM_TO_STREAM
   // JSON stream to JsonObject to YAML stream
@@ -125,19 +132,22 @@ private:
 
   // ArduinoJson friendly functions and derivated class
 
+  #define ARDUINOJSON_String ARDUINOJSON_NAMESPACE::String
+
   #include <ArduinoJson.h>
 
-  // deconstructors
+  // default name for the topmost temporary JsonObject
   #define ROOT_NODE "_root_"
-  void deserializeYml_JsonObject( yaml_document_t* document, yaml_node_t* yamlNode, JsonObject &jsonNode, YAMLParser::JNestingType_t nt=YAMLParser::NONE, const char *nodename=ROOT_NODE, int depth=0 );
-  size_t serializeYml_JsonVariant( JsonVariant root, Stream &out, int depth_level, YAMLParser::JNestingType_t nt );
+  // deconstructors
+  void deserializeYml_JsonObject( yaml_document_t* document, yaml_node_t* yamlNode, JsonObject &jsonNode, JNestingType_t nt=YAMLParser::NONE, const char *nodename=ROOT_NODE, int depth=0 );
+  size_t serializeYml_JsonVariant( JsonVariant root, Stream &out, int depth_level, JNestingType_t nt );
 
   class YAMLToArduinoJson : public YAMLParser
   {
   public:
     YAMLToArduinoJson() {};
     ~YAMLToArduinoJson() { if( _doc) delete _doc; }
-    void setJsonDocument( const size_t capacity ) { _doc = new DynamicJsonDocument(capacity); _root = _doc->to<JsonObject>(); /*_root.createNestedObject(ROOT_NODE);*/ }
+    void setJsonDocument( const size_t capacity ) { _doc = new DynamicJsonDocument(capacity); _root = _doc->to<JsonObject>(); }
     JsonObject& getJsonObject() { return _root; }
     void toJson() {
       yaml_node_t * node;
@@ -179,26 +189,32 @@ private:
   // Deserialize YAML stream to ArduinoJSON document
   DeserializationError deserializeYml( JsonDocument &dest_doc, const char *src);
 
-  // [templated] Deserialize YAML string to ArduinoJSON object
-  // DeserializationError deserializeYml( JsonObject &dest_obj, const char* src_yaml_str );
-  // [templated] Deserialize YAML stream to ArduinoJSON object
-  // DeserializationError deserializeYml( JsonObject &dest_obj, Stream &src_stream );
-  template<typename T>
-  DeserializationError deserializeYml( JsonObject &dest_obj, T &src)
-  {
-    YAMLToArduinoJson *parser = new YAMLToArduinoJson();
-    dest_obj = parser->toJson( src ); // decode yaml stream/string
-    dest_obj = dest_obj[ROOT_NODE];
-    size_t capacity = parser->bytesWritten()*2;
-    delete parser;
-    if( capacity == 0 ) {
-      return DeserializationError::InvalidInput;
+
+  // ArduinoJson mangles keys with RP2040 when dest is JsonObject
+  #if !defined ARDUINO_ARCH_RP2040
+    // [templated] Deserialize YAML string to ArduinoJSON object
+    // DeserializationError deserializeYml( JsonObject &dest_obj, const char* src_yaml_str );
+    // [templated] Deserialize YAML stream to ArduinoJSON object
+    // DeserializationError deserializeYml( JsonObject &dest_obj, Stream &src_stream );
+    template<typename T>
+    DeserializationError deserializeYml( JsonObject &dest_obj, T &src)
+    {
+      YAMLToArduinoJson *parser = new YAMLToArduinoJson();
+      JsonObject _dest_obj = parser->toJson( src ); // decode yaml stream/string
+      dest_obj = _dest_obj[ROOT_NODE];
+      size_t capacity = parser->bytesWritten()*2;
+      delete parser;
+      if( capacity == 0 ) {
+        return DeserializationError::InvalidInput;
+      }
+      if( dest_obj.isNull() ) {
+        return DeserializationError::NoMemory;
+      }
+      return DeserializationError::Ok;
     }
-    if( dest_obj.isNull() ) {
-      return DeserializationError::NoMemory;
-    }
-    return DeserializationError::Ok;
-  }
+  #endif
+
+
 
 
 #endif // HAS_ARDUINOJSON
@@ -213,7 +229,7 @@ private:
 
   // deconstructors
   cJSON* deserializeYml_cJSONObject(yaml_document_t * document, yaml_node_t * yamlNode);
-  size_t serializeYml_cJSONObject( cJSON *root, Stream &out, int depth, YAMLParser::JNestingType_t nt );
+  size_t serializeYml_cJSONObject( cJSON *root, Stream &out, int depth, JNestingType_t nt );
 
 
   class YAMLToCJson : public YAMLParser
