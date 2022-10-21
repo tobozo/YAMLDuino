@@ -30,12 +30,17 @@
 
 #include "ArduinoYaml.hpp"
 
+// shorthand to libyaml scalar values
+#define SCALAR_c(x) (const char*)x->data.scalar.value
+#define SCALAR_s(x)       (char*)x->data.scalar.value
 
+// indent to string
 String _indent_str;
-const char* indent( size_t size )
+const char* indent( int size )
 {
+  if( size<=0 ) return "";
   _indent_str = "";
-  for( size_t i=0;i<size;i++ ) _indent_str += "  ";
+  for( int i=0;i<size;i++ ) _indent_str += "  ";
   return _indent_str.c_str();
 }
 
@@ -43,7 +48,6 @@ const char* indent( size_t size )
 
 // YAML is very inclusive with booleans :-)
 // https://yaml.org/type/bool.html
-
 
 bool string_has_truthy_value( String &_scalar )
 {
@@ -130,6 +134,7 @@ void yaml_multiline_escape_string( Stream* stream, const char* str, size_t lengt
 }
 
 
+// when escaping to JSON
 void yaml_escape_quoted_string( Stream* stream, const char* str, size_t length, size_t *bytes_out )
 {
   size_t i;
@@ -148,7 +153,6 @@ void yaml_escape_quoted_string( Stream* stream, const char* str, size_t length, 
 
 
 
-// used for internals, mainly because yaml_emitter_dump() destroys data after emitting
 int yaml_copy_document(yaml_document_t *dest, yaml_document_t *src)
 {
   yaml_node_t *node;
@@ -198,6 +202,18 @@ struct yaml_stream_handler_data_t
 };
 
 
+// struct for recursively parsing yaml_document
+struct yaml_traverser_t
+{
+  yaml_document_t* document;
+  yaml_node_t* node;
+  Stream* stream;
+  JNestingType_t type;
+  int depth;
+};
+
+
+
 // stream reader callback
 int _yaml_stream_reader(void *data, unsigned char *buffer, size_t size, size_t *size_read)
 {
@@ -212,6 +228,15 @@ int _yaml_stream_reader(void *data, unsigned char *buffer, size_t size, size_t *
 }
 
 
+// dummy writer callback to count bytes
+int _yaml_stream_dummy_writer(void *data, __attribute__((unused)) unsigned char *buffer, size_t size)
+{
+  yaml_stream_handler_data_t *shd = (yaml_stream_handler_data_t*)data;
+  *shd->size += size;
+  return size > 0 ? 1 : 0;
+}
+
+
 // stream writer callback
 int _yaml_stream_writer(void *data, unsigned char *buffer, size_t size)
 {
@@ -222,8 +247,75 @@ int _yaml_stream_writer(void *data, unsigned char *buffer, size_t size)
   return bytes_written > 0 ? 1 : 0;
 }
 
+
+
+size_t deserialize_YamlDocument( yaml_traverser_t *it )
+{
+  assert( it );
+  assert( it->node );
+  assert( it->document );
+  assert( it->stream );
+  // just some aliasing
+  auto      node = it->node;
+  auto  document = it->document;
+  auto    stream = it->stream;
+  auto     depth = it->depth;
+  auto nest_type = it->type;
+
+  size_t bytes_out = 0;
+  int i = 0, parent_level = depth>0 ? depth-1 : 0;
+
+  switch (node->type) {
+    case YAML_SCALAR_NODE:
+      if ( nest_type == YAMLParser::SEQ_KEY ) bytes_out += stream->printf("\n%s%s",  indent(depth), "- " );
+      yaml_multiline_escape_string( stream, SCALAR_c(node), strlen(SCALAR_c(node)), &bytes_out, depth );
+    break;
+    case YAML_SEQUENCE_NODE:
+      for (auto item_i = node->data.sequence.items.start; item_i < node->data.sequence.items.top; ++item_i) {
+        auto node_item = yaml_document_get_node(document, *item_i);
+        int child_level = node_item->type == YAML_MAPPING_NODE ? depth+1 : depth-1;
+        yaml_traverser_t seq_item = { document, yaml_document_get_node(document, *item_i), stream, YAMLParser::SEQ_KEY, child_level };
+        bytes_out += deserialize_YamlDocument( &seq_item );
+      }
+    break;
+    case YAML_MAPPING_NODE:
+      for (auto pair_i = node->data.mapping.pairs.start; pair_i < node->data.mapping.pairs.top; ++pair_i) {
+        bool is_seqfirst = ( i++==0 && nest_type == YAMLParser::SEQ_KEY );
+        auto key   = yaml_document_get_node(document, pair_i->key);
+        auto value = yaml_document_get_node(document, pair_i->value);
+        if (key->type != YAML_SCALAR_NODE) {
+          YAML_LOG_w("Mapping key is not scalar (line %lu).", key->start_mark.line);
+          continue;
+        }
+        yaml_traverser_t map_item = { document, value, stream, YAMLParser::MAP_KEY, depth+1 };
+        bytes_out += stream->printf("\n%s%s%s: ", is_seqfirst ? indent(parent_level) : indent(depth), is_seqfirst ? "- " : "", SCALAR_c(key) );
+        bytes_out += deserialize_YamlDocument( &map_item );
+      }
+    break;
+    case YAML_NO_NODE: break;
+    default: YAML_LOG_w("Unknown node type (line %lu).", node->start_mark.line); break;
+  }
+  return bytes_out;
+}
+
+
+
+// pure libyaml JSON->YAML stream-to-stream seralization
+size_t serializeYml( Stream &stream_in, Stream &stream_out )
+{
+  YAMLParser* parser = new YAMLParser();
+  parser->setOutputStream( &stream_out );
+  parser->parse( stream_in );
+  auto ret = parser->bytesWritten();
+  delete parser;
+  return ret;
+}
+
+
+
 YAMLParser::YAMLParser()
 {
+  _yaml_string = "";
   _yaml_string_stream_ptr = new StringStream(_yaml_string);
   _yaml_stream = _yaml_string_stream_ptr;
 }
@@ -231,8 +323,10 @@ YAMLParser::YAMLParser()
 
 YAMLParser::~YAMLParser()
 {
-  yaml_document_delete(&_document);
-  delete _yaml_string_stream_ptr;
+  yaml_parser_delete(&parser);
+  yaml_document_delete(&document);
+  if( _yaml_string_stream_ptr ) delete _yaml_string_stream_ptr;
+  _yaml_string = "";
 }
 
 
@@ -243,21 +337,94 @@ void YAMLParser::setLogLevel( YAML::LogLevel_t level )
 }
 
 
+void YAMLParser::parse()
+{
+  yaml_node_t* node;
+  if (node = yaml_document_get_root_node(&document), !node) {
+    YAML_LOG_w("No document defined.");
+    return;
+  }
+
+  yaml_traverser_t doc = { &document, node, _yaml_stream, YAMLParser::NONE, 0 };
+  size_t bytes_out = deserialize_YamlDocument( &doc );
+
+  YAML_LOG_d("written %d bytes", bytes_out );
+}
+
+
+void YAMLParser::parse( Stream &yaml_or_json_stream  )
+{
+  if (!yaml_parser_initialize(&parser)) {
+    YAML_LOG_e("Failed to initialize parser!\n", stderr);
+    return;
+  }
+
+  yaml_stream_handler_data_t shd = { &yaml_or_json_stream, &_bytes_read };
+  yaml_parser_set_input(&parser, &_yaml_stream_reader, &shd);
+
+  if (!yaml_parser_load(&parser, &document)) {
+    handle_parser_error(&parser);
+    return;
+  }
+
+  yaml_node_t* node;
+  if (node = yaml_document_get_root_node(&document), !node) {
+    YAML_LOG_w("No document defined.");
+    return;
+  }
+
+  yaml_traverser_t doc = { &document, node, _yaml_stream, YAMLParser::NONE, 0 };
+  size_t bytes_out = deserialize_YamlDocument( &doc );
+
+  YAML_LOG_d("written %d bytes", bytes_out );
+}
+
+
+
+void YAMLParser::parse( const char* yaml_or_json_str )
+{
+  assert( yaml_or_json_str );
+
+  if (!yaml_parser_initialize(&parser)) {
+    YAML_LOG_e("Failed to initialize parser!\n", stderr);
+    return;
+  }
+
+  yaml_parser_set_input_string(&parser, (const unsigned char*)yaml_or_json_str, strlen(yaml_or_json_str) );
+
+  if (!yaml_parser_load(&parser, &document)) {
+    handle_parser_error(&parser);
+    return;
+  }
+
+  yaml_node_t* node;
+  if (node = yaml_document_get_root_node(&document), !node) {
+    YAML_LOG_w("No document defined.");
+    return;
+  }
+
+  yaml_traverser_t doc = { &document, node, _yaml_stream, YAMLParser::NONE, 0 };
+  size_t bytes_out = deserialize_YamlDocument( &doc );
+
+  YAML_LOG_d("written %d bytes", bytes_out );
+}
+
+
 void YAMLParser::load( Stream &yaml_or_json_stream )
 {
   _yaml_string = "";  // reset internal output stream
   _bytes_read = 0;    // length will be known when the stream is consumed
   _bytes_written = 0; // reset yaml output length
-  yaml_stream_handler_data_t shd = { &yaml_or_json_stream, &_bytes_read };
-  if( !yaml_parser_initialize(&_parser) ) {
-    handle_parser_error(&_parser);
+
+  if ( !yaml_parser_initialize(&parser) ) {
+    handle_parser_error(&parser);
     YAML_LOG_e("[FATAL] could not initialize parser");
-    goto _parser_delete;
+    return;
   }
-  yaml_parser_set_input(&_parser, &_yaml_stream_reader, &shd);
+
+  yaml_stream_handler_data_t shd = { &yaml_or_json_stream, &_bytes_read };
+  yaml_parser_set_input(&parser, &_yaml_stream_reader, &shd);
   loadDocument();
-  _parser_delete:
-    yaml_parser_delete(&_parser);
 }
 
 
@@ -267,40 +434,39 @@ void YAMLParser::load( const char* yaml_or_json_str )
   _yaml_string = "";  // reset internal output stream
   _bytes_read = strlen(yaml_or_json_str); // length is already known
   _bytes_written = 0; // reset yaml output length
-  if( !yaml_parser_initialize(&_parser) ) {
-    handle_parser_error(&_parser);
+  if ( !yaml_parser_initialize(&parser) ) {
+    handle_parser_error(&parser);
     YAML_LOG_e("[FATAL] could not initialize parser");
-    goto _parser_delete;
+    return;
   }
-  yaml_parser_set_input_string(&_parser, (const unsigned char*)yaml_or_json_str, _bytes_read );
+  yaml_parser_set_input_string(&parser, (const unsigned char*)yaml_or_json_str, _bytes_read );
   loadDocument();
-  _parser_delete:
-    yaml_parser_delete(&_parser);
 }
 
 
 // called by load(const char*) and load(Stream&)
 void YAMLParser::loadDocument()
 {
-  yaml_document_t document;
-  assert(yaml_emitter_initialize(&_emitter));
-  yaml_stream_handler_data_t shd = { _yaml_stream, &_bytes_written };
-  yaml_emitter_set_canonical(&_emitter, 1);
-  yaml_emitter_set_unicode(&_emitter, 1);
-  yaml_emitter_set_output(&_emitter, &_yaml_stream_writer, &shd);
-  yaml_emitter_open(&_emitter);
-  if (!yaml_parser_load(&_parser, &document)) {
-    handle_parser_error(&_parser);
-    YAML_LOG_e("[FATAL] Failed to load YAML document at line %lu", _parser.problem_mark.line);
+  yaml_document_t _tmpdoc;
+  yaml_emitter_t emitter;
+  assert(yaml_emitter_initialize(&emitter));
+  yaml_stream_handler_data_t shd = { nullptr, &_bytes_written };
+  yaml_emitter_set_canonical(&emitter, 1);
+  yaml_emitter_set_unicode(&emitter, 1);
+  yaml_emitter_set_output(&emitter, &_yaml_stream_dummy_writer, &shd);
+  yaml_emitter_open(&emitter);
+  if (!yaml_parser_load(&parser, &document)) {
+    handle_parser_error(&parser);
+    YAML_LOG_e("[FATAL] Failed to load YAML document at line %lu", parser.problem_mark.line);
     goto _emitter_delete;
   }
-  assert( yaml_copy_document(&_document, &document) ); // copy into local document for later parsing
-  assert( yaml_emitter_dump(&_emitter, &document) ); // dump to emitter for output length evaluation
-  yaml_document_delete(&document);
+  assert( yaml_copy_document(&_tmpdoc, &document) ); // copy into local document for later parsing
+  assert( yaml_emitter_dump(&emitter, &_tmpdoc) ); // dump to emitter for input length evaluation
+  yaml_document_delete(&_tmpdoc);
+
   _emitter_delete:
-    yaml_parser_delete(&_parser);
-    yaml_emitter_close(&_emitter);
-    yaml_emitter_delete(&_emitter);
+    yaml_emitter_close(&emitter);
+    yaml_emitter_delete(&emitter);
 }
 
 
@@ -333,15 +499,13 @@ void YAMLParser::handle_parser_error(yaml_parser_t *p)
 
 void YAMLParser::handle_emitter_error(yaml_emitter_t *e)
 {
-  switch (e->error)
-  {
+  switch (e->error) {
     case YAML_MEMORY_ERROR: YAML_LOG_e("[MEMORY ERROR]: Not enough memory for emitting"); break;
     case YAML_WRITER_ERROR: YAML_LOG_e("[WRITER ERROR]: %s", e->problem); break;
     case YAML_EMITTER_ERROR: YAML_LOG_e("[EMITTER ERROR]: %s", e->problem); break;
     default: /* Couldn't happen. */ YAML_LOG_e( "[INTERNAL ERROR]"); break;
   }
 }
-
 
 
 
@@ -473,17 +637,6 @@ void YAMLParser::handle_emitter_error(yaml_emitter_t *e)
     return serializeYml_JsonVariant( src_obj, dest_stream, 0, YAMLParser::NONE );
   }
 
-  #if defined USE_STREAM_TO_STREAM
-    size_t serializeYml( Stream &json_src_stream, Stream &yaml_dest_stream )
-    {
-      YAMLToArduinoJson *parser = new YAMLToArduinoJson();
-      JsonObject tmpObj = parser->toJson( json_src_stream ); // decode yaml stream/string
-      auto ret = serializeYml_JsonVariant( tmpObj[ROOT_NODE], yaml_dest_stream, 0, YAMLParser::NONE );
-      delete parser;
-      return ret;
-    }
-  #endif
-
 
   DeserializationError deserializeYml( JsonDocument &dest_doc, Stream &src )
   {
@@ -545,7 +698,7 @@ void YAMLParser::handle_emitter_error(yaml_emitter_t *e)
           } else {
             object = cJSON_CreateString( scalar );
           }
-        } else object = cJSON_CreateNumber(number);
+        } else object = cJSON_CreateNumber(number); // leaky !!
       }
       break;
       case YAML_SEQUENCE_NODE:
@@ -560,16 +713,17 @@ void YAMLParser::handle_emitter_error(yaml_emitter_t *e)
       case YAML_MAPPING_NODE:
       {
         object = cJSON_CreateObject();
-        yaml_node_pair_t * pair_i;
+        yaml_node_pair_t* pair_i;
+        yaml_node_t* key;
+        yaml_node_t* value;
         for (pair_i = yamlNode->data.mapping.pairs.start; pair_i < yamlNode->data.mapping.pairs.top; ++pair_i) {
-          yaml_node_t * key = yaml_document_get_node(document, pair_i->key);
-          yaml_node_t * value = yaml_document_get_node(document, pair_i->value);
-
+          key   = yaml_document_get_node(document, pair_i->key);
+          value = yaml_document_get_node(document, pair_i->value);
           if (key->type != YAML_SCALAR_NODE) {
             YAML_LOG_w("Mapping key is not scalar (line %lu).", key->start_mark.line);
             continue;
           }
-          cJSON_AddItemToObject(object, (char *)key->data.scalar.value, deserializeYml_cJSONObject(document, value));
+          cJSON_AddItemToObject(object, (const char *)key->data.scalar.value, deserializeYml_cJSONObject(document, value));
         }
       }
       break;
@@ -617,15 +771,9 @@ void YAMLParser::handle_emitter_error(yaml_emitter_t *e)
         }
       }
       size_t value_len = strlen(value);
-      if( ( value_len > 2 && value[0]=='"'  && value[value_len-1]=='"'  ) || ( value_len > 0 && value[0]=='\'' && value[value_len-1]=='\'' ) ) {
-        // remove trailing and leading quotes from string
-        memmove( value, value+1, value_len-1 );
-        value[value_len-2] = '\0';
-        value -= 2;
-      }
       if( nt == YAMLParser::SEQ_KEY ) out_size += out.printf("\n%s%s",  indent(depth), "- " );
       yaml_multiline_escape_string(&out, value, value_len, &out_size, depth);
-      if( value_needs_free ) free( value );
+      if( value_needs_free ) cJSON_free( value );
     }
     return out_size;
   }
@@ -646,24 +794,6 @@ void YAMLParser::handle_emitter_error(yaml_emitter_t *e)
     assert( src_obj );
     return serializeYml_cJSONObject( src_obj, dest_stream, 0, YAMLParser::NONE );
   }
-
-
-  #if !defined HAS_ARDUINOJSON && defined USE_STREAM_TO_STREAM
-    size_t serializeYml( Stream &json_src_stream, Stream &yaml_dest_stream )
-    {
-      cJSON* objPtr = cJSON_Parse("{}"); // quick allocation of empty object
-      if ( !deserializeYml( objPtr, json_src_stream ) ) {
-        YAML_LOG_e("unable to deserialize to temporary cJSONObject, aborting");
-        cJSON_Delete( objPtr );
-        return 0;
-      }
-      size_t bytes_written = serializeYml_cJSONObject( objPtr, yaml_dest_stream, 0, YAMLParser::NONE );
-      cJSON_Delete( objPtr );
-      return bytes_written;
-    }
-  #endif
-
-
 
 
 #endif // HAS_CJSON
