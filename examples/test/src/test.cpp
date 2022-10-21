@@ -1,5 +1,8 @@
-#include <ArduinoJson.h> // optional
-//#include <cJSON.h>       // implicit with esp32, otherwise optional
+#include <ArduinoJson.h>
+
+// #define YAML_DISABLE_ARDUINOJSON
+// #define YAML_DISABLE_CJSON
+
 #include <YAMLDuino.h>
 
 
@@ -38,6 +41,7 @@ blah:
       prop2: baz
       prop4: wat
   integer: 12345
+  # this float value gives a memleak to cJSON
   float: 12.3323
   inline_json_for_the_haters: { "hello":"json", "nested":[3,2,"1","moon"] }
 whatever:
@@ -78,6 +82,7 @@ const char* json_example_str = R"_JSON_STRING_(
   "whatever": { "nope": [ "n", "o", "p", "e" ] },
   "last": true
 }
+
 )_JSON_STRING_";
 
 
@@ -87,68 +92,116 @@ int test_number = 1;
 
 
 
-#if defined HAS_ARDUINOJSON
+void test_Yaml_String_Parser()
+{
+  YAML_LOG_n( "[TEST #%d] parse JSON String to YAML Stream:", test_number++ );
+  YAMLParser* parser = new YAMLParser();
+  Stream* output_stream = &Serial;
+  parser->setOutputStream( output_stream );
+  parser->parse( json_example_str );
+  delete parser;
+  YAML_LOG_n("Tests complete");
+}
 
+
+void test_Yaml_Stream_Parser()
+{
+  YAML_LOG_n( "[TEST #%d] parse JSON Stream to YAML Stream:", test_number++ );
+  YAMLParser* parser = new YAMLParser();
+  Stream* output_stream = &Serial;
+  parser->setOutputStream( output_stream );
+  String json_in = String( json_example_str );
+  StringStream input_stream( json_in );
+  parser->parse( input_stream );
+  delete parser;
+  YAML_LOG_n("Tests complete");
+}
+
+
+void test_Yaml_String_Loader()
+{
+  YAML_LOG_n( "[TEST #%d] load JSON String and parse to YAML Stream:", test_number++ );
+  YAMLParser* parser = new YAMLParser();
+  Stream* output_stream = &Serial;
+  parser->setOutputStream( output_stream );
+  parser->load( json_example_str );
+  // do something with parser->getDocument()
+  parser->parse();
+  delete parser;
+  YAML_LOG_n("Tests complete");
+}
+
+
+void test_Yaml_Stream_Loader()
+{
+  YAML_LOG_n( "[TEST #%d] load JSON Stream and parse to YAML Stream:", test_number++ );
+  YAMLParser* parser = new YAMLParser();
+  Stream* output_stream = &Serial;
+  parser->setOutputStream( output_stream );
+  String json_in = String( json_example_str );
+  StringStream input_stream( json_in );
+  parser->load( input_stream );
+  // do something with parser->getDocument()
+  parser->parse();
+  delete parser;
+  YAML_LOG_n("Tests complete");
+}
+
+
+#if defined HAS_ARDUINOJSON
 
   void test_deserializeYml_JsonObject_YamlStream()
   {
-    #if !defined ARDUINO_ARCH_RP2040
-      YAML_LOG_n( "[TEST #%d] YAML stream to JsonObject -> deserializeYml(json_obj, yaml_stream):", test_number++ );
-      String yaml_str = String( yaml_example_str );
-      StringStream yaml_stream( yaml_str );
-      DynamicJsonDocument json_doc(2048);
-      JsonObject json_obj = json_doc.as<JsonObject>();
-      auto err = deserializeYml( json_obj, yaml_stream ); // deserialize yaml stream to JsonObject
-      if( err ) {
-        YAML_LOG_n("Unable to deserialize demo YAML to JsonObject: %s", err.c_str() );
-        return;
-      }
-      String str_json_out = ""; // JSON output string
-      //StringStream json_stream_out( str_json_out ); // Stream to str_yaml_out
-      const size_t bytes_out = serializeJsonPretty( json_obj, str_json_out ); // print deserialized JsonObject
-      Serial.println( str_json_out );
-      YAML_LOG_n("[YAML=>JsonObject] yaml bytes in=%d, json bytes out=%d\n\n", yaml_str_size, bytes_out);
-    #endif
+    YAML_LOG_n( "[TEST #%d] YAML stream to JsonObject -> deserializeYml(json_obj, yaml_stream):", test_number++ );
+    String yaml_str = String( yaml_example_str );
+    StringStream yaml_stream( yaml_str );
+    DynamicJsonDocument json_doc(2048);
+    JsonObject json_obj = json_doc.as<JsonObject>();
+    auto err = deserializeYml( json_obj, yaml_stream ); // deserialize yaml stream to JsonObject
+    if( err ) {
+      YAML_LOG_n("Unable to deserialize demo YAML to JsonObject: %s", err.c_str() );
+      return;
+    }
+    String str_json_out = ""; // JSON output string
+    const size_t bytes_out = serializeJsonPretty( json_obj, str_json_out ); // print deserialized JsonObject
+    Serial.println( str_json_out );
+    YAML_LOG_n("[YAML=>JsonObject] yaml bytes in=%d, json bytes out=%d\n\n", yaml_str_size, bytes_out);
   }
 
 
   void test_deserializeYml_JsonObject_YamlString()
   {
-    #if !defined ARDUINO_ARCH_RP2040
-      YAML_LOG_n( "[TEST #%d] YAML string to JsonObject -> deserializeYml(json_obj, yaml_example_str):", test_number++ );
-      DynamicJsonDocument json_doc(2048);
-      JsonObject json_obj = json_doc.as<JsonObject>();
-      auto err = deserializeYml( json_obj, yaml_example_str ); // deserialize yaml string to JsonObject
-      if( err ) {
-        YAML_LOG_n("Unable to deserialize demo YAML to JsonObject: %s", err.c_str() );
-        return;
-      }
-      String str_json_out = ""; // JSON output string
-      const size_t bytes_out = serializeJsonPretty( json_obj, str_json_out ); // print deserialized JsonObject
-      Serial.println( str_json_out );
-      YAML_LOG_n("[YAML=>JsonObject] yaml bytes in=%d, json bytes out=%d\n\n", yaml_str_size, bytes_out);
-    #endif
+    YAML_LOG_n( "[TEST #%d] YAML string to JsonObject -> deserializeYml(json_obj, yaml_example_str):", test_number++ );
+    DynamicJsonDocument json_doc(2048);
+    JsonObject json_obj = json_doc.as<JsonObject>();
+    auto err = deserializeYml( json_obj, yaml_example_str ); // deserialize yaml string to JsonObject
+    if( err ) {
+      YAML_LOG_n("Unable to deserialize demo YAML to JsonObject: %s", err.c_str() );
+      return;
+    }
+    String str_json_out = ""; // JSON output string
+    const size_t bytes_out = serializeJsonPretty( json_obj, str_json_out ); // print deserialized JsonObject
+    Serial.println( str_json_out );
+    YAML_LOG_n("[YAML=>JsonObject] yaml bytes in=%d, json bytes out=%d\n\n", yaml_str_size, bytes_out);
   }
 
 
 
   void test_deserializeYml_JsonDocument_YamlStream()
   {
-    #if !defined ARDUINO_ARCH_SAMD // samd with 32kb ram can oom after this, so only enable for specific test
-      YAML_LOG_n( "[TEST #%d] YAML stream to JsonDocument -> deserializeYml(json_doc, yaml_stream):", test_number++ );
-      DynamicJsonDocument json_doc(2048);
-      String yaml_str = String( yaml_example_str );
-      StringStream yaml_stream( yaml_str );
-      auto err = deserializeYml( json_doc, yaml_stream ); // deserialize yaml stream to JsonDocument
-      if( err ) {
-        YAML_LOG_n("Unable to deserialize demo YAML to JsonObject: %s", err.c_str() );
-        return;
-      }
-      String str_json_out = ""; // JSON output string
-      const size_t bytes_out = serializeJsonPretty( json_doc, str_json_out ); // print deserialized JsonObject
-      Serial.println( str_json_out );
-      YAML_LOG_n("[YAML=>JsonObject] yaml bytes in=%d, json bytes out=%d\n\n", yaml_str_size, bytes_out);
-    #endif
+    YAML_LOG_n( "[TEST #%d] YAML stream to JsonDocument -> deserializeYml(json_doc, yaml_stream):", test_number++ );
+    DynamicJsonDocument json_doc(2048);
+    String yaml_str = String( yaml_example_str );
+    StringStream yaml_stream( yaml_str );
+    auto err = deserializeYml( json_doc, yaml_stream ); // deserialize yaml stream to JsonDocument
+    if( err ) {
+      YAML_LOG_n("Unable to deserialize demo YAML to JsonObject: %s", err.c_str() );
+      return;
+    }
+    String str_json_out = ""; // JSON output string
+    const size_t bytes_out = serializeJsonPretty( json_doc, str_json_out ); // print deserialized JsonObject
+    Serial.println( str_json_out );
+    YAML_LOG_n("[YAML=>JsonObject] yaml bytes in=%d, json bytes out=%d\n\n", yaml_str_size, bytes_out);
   }
 
 
@@ -212,33 +265,17 @@ int test_number = 1;
 
 
 
-#if defined USE_STREAM_TO_STREAM // stream to stream unavailable on low memory devices
-
-  void test_serializeYml_JsonStream_YamlStream()
-  {
-    YAML_LOG_n( "[TEST #%d] JSON stream to %s to YAML stream -> serializeYml(stream_in, stream_out):", test_number++, STREAM_TO_STREAM );
-    String str_yaml = "";
-    String str_json = String( json_example_str );
-    StringStream stream_in( str_json );
-    StringStream stream_out( str_yaml );
-    const size_t bytes_out = serializeYml( stream_in, stream_out );
-    Serial.println( str_yaml );
-    YAML_LOG_n("[JSON=>JsonObject=>YAML] json bytes in=%d, yaml bytes out=%d\n", json_str_size, bytes_out);
-  }
-
-#endif
-
 
 
 #if defined HAS_CJSON
 
+
   void test_deserializeYml_cJson_String()
   {
-    YAML_LOG_n( "YAML string to cJSON Object -> deserializeYml(cJSON_obj*, yaml_example_str):" );
-    // deserialize YAML string into cJSON object
-    cJSON* objPtr = cJSON_Parse("{}"); // (cJSON*)malloc( sizeof(cJSON) ); // allocate minimal memory to empty object
-    int ret = deserializeYml( objPtr, yaml_example_str );
-    if (!ret) {
+    YAML_LOG_n( "[TEST #%d] YAML string to cJSON Object -> deserializeYml(cJSON_obj*, yaml_example_str):", test_number++ );
+    cJSON* objPtr;
+    int ret = deserializeYml( &objPtr, yaml_example_str ); // deserialize YAML string into cJSON object
+    if (ret<0) {
       Serial.println("deserializeYml failed");
       return;
     }
@@ -248,23 +285,22 @@ int test_number = 1;
       YAML_LOG_e("emtpy output, aborting");
       return;
     }
-    String str_json_out = String( json );
-    free(json);
-    Serial.print( str_json_out );
+    size_t bytes_out = strlen( json );
+    Serial.println( json );
+    cJSON_free( json );
     cJSON_Delete( objPtr );
-    YAML_LOG_n("[YAML=>cJsonObject] yaml bytes in=%d, json bytes out=%d\n", yaml_str_size, str_json_out.length() );
+    YAML_LOG_n("[YAML=>cJsonObject] yaml bytes in=%d, json bytes out=%d\n", yaml_str_size, bytes_out );
   }
 
 
   void test_deserializeYml_cJson_Stream()
   {
-    YAML_LOG_n( "YAML stream to cJSON Object -> deserializeYml(cJSON_obj*, yaml_stream):" );
+    YAML_LOG_n( "[TEST #%d] YAML stream to cJSON Object -> deserializeYml(cJSON_obj*, yaml_stream):", test_number++ );
     String yaml_str = String( yaml_example_str );
     StringStream yaml_stream( yaml_str );
-    cJSON* objPtr = cJSON_Parse("{}"); // (cJSON*)malloc( sizeof(cJSON) ); // allocate minimal memory to empty object
-    // deserialize YAML stream into cJSON object
-    int ret = deserializeYml( objPtr, yaml_stream );
-    if (!ret) {
+    cJSON* objPtr;
+    int ret = deserializeYml( &objPtr, yaml_stream ); // deserialize YAML stream into cJSON object
+    if (ret<0) {
       Serial.println("deserializeYml failed");
       return;
     }
@@ -274,9 +310,9 @@ int test_number = 1;
       YAML_LOG_e("emtpy output, aborting");
       return;
     }
-    size_t bytes_out = strlen(json);
-    Serial.print( json );
-    free(json);
+    size_t bytes_out = strlen( json );
+    Serial.println( json );
+    cJSON_free( json );
     cJSON_Delete( objPtr );
     YAML_LOG_n("[YAML=>cJsonObject] yaml bytes in=%d, json bytes out=%d\n", yaml_str.length(), bytes_out );
   }
@@ -284,7 +320,7 @@ int test_number = 1;
 
   void test_serializeYml_cJson_Stream()
   {
-    YAML_LOG_n( "cJSON Object to YAML stream -> serializeYml( objPtr, Serial ):" );
+    YAML_LOG_n( "[TEST #%d] cJSON Object to YAML stream -> serializeYml( objPtr, Serial ):", test_number++ );
     cJSON* objPtr = cJSON_Parse( json_example_str );
     size_t bytes_out = serializeYml( objPtr, Serial );
     cJSON_Delete( objPtr );
@@ -294,7 +330,7 @@ int test_number = 1;
 
   void test_serializeYml_cJson_String()
   {
-    YAML_LOG_n( "cJSON Object to YAML string -> serializeYml( objPtr, yaml_dest_str ):" );
+    YAML_LOG_n( "[TEST #%d] cJSON Object to YAML string -> serializeYml( objPtr, yaml_dest_str ):", test_number++ );
     cJSON* objPtr = cJSON_Parse( json_example_str );
     String yaml_dest_str;
     size_t bytes_out = serializeYml( objPtr, yaml_dest_str );
@@ -316,22 +352,22 @@ void setup()
   Serial.print( HEAP_AVAILABLE() );
   Serial.println(" bytes");
 
-  Serial.printf("[DEBUG] YAML (in):\n%s\n\n", yaml_example_str);
-
   YAMLParser::setLogLevel( YAML::LogLevelDebug ); // override sketch debug level (otherwise inherited)
 
+  YAML_LOG_n("\n\nJSON=>YAML using libyaml:\n");
 
-  #if defined USE_STREAM_TO_STREAM // json->yaml stream->stream using intermediate (cJSON or ArduinoJSON) object
-    #pragma message "Enabling ArduinoJson stream<=>stream tests"
-    test_serializeYml_JsonStream_YamlStream();
-  #endif
+  test_Yaml_String_Parser();
+  test_Yaml_Stream_Parser();
+  test_Yaml_String_Loader();
+  test_Yaml_Stream_Loader();
 
+  YAML_LOG_n("YAMLParser libyaml tests complete");
 
   #if defined HAS_ARDUINOJSON
     #pragma message "Enabling ArduinoJson tests"
     YAML_LOG_n("YAML=>JSON and JSON=>YAML using ArduinoJson\n\n");
-    test_deserializeYml_JsonObject_YamlStream();
     test_deserializeYml_JsonObject_YamlString();
+    test_deserializeYml_JsonObject_YamlStream();
     test_deserializeYml_JsonDocument_YamlStream();
     test_deserializeYml_JsonDocument_YamlString();
     test_serializeYml_JsonObject_YamlStream();
@@ -343,10 +379,10 @@ void setup()
   #if defined HAS_CJSON
     #pragma message "Enabling cJSON tests"
     YAML_LOG_n("\n\nYAML=>JSON and JSON=>YAML using cJSON:\n");
-    test_deserializeYml_cJson_String();
-    test_deserializeYml_cJson_Stream();
     test_serializeYml_cJson_Stream();
     test_serializeYml_cJson_String();
+    test_deserializeYml_cJson_Stream();
+    test_deserializeYml_cJson_String();
     YAML_LOG_n("cJSON tests complete");
   #endif
 }
