@@ -1,5 +1,12 @@
 # ArduinoYaml A.K.A YAMLDuino
 
+
+[![arduino-library-badge](https://www.ardu-badge.com/badge/YAMLDuino.svg?)](https://www.ardu-badge.com/YAMLDuino)
+[![PlatformIO Registry](https://badges.registry.platformio.org/packages/tobozo/library/YAMLDuino.svg?)](https://registry.platformio.org/packages/libraries/tobozo/YAMLDuino)
+
+![](https://raw.githubusercontent.com/tobozo/YAMLDuino/main/assets/sleazy-logo-with-title.png)
+
+
 This arduino library is based on [libyaml](https://github.com/yaml/libyaml).
 
 It provides several ways to convert YAML<=>JSON using libyaml, cJSON or ArduinoJson objects.
