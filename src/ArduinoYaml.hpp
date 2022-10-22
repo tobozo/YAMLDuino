@@ -30,10 +30,6 @@
  */
 
 
-// fuck you espressif, this warning is treaded as error
-//#pragma GCC diagnostic ignored "-Wunused-variable"
-//#pragma GCC diagnostic ignored "-Wunused-but-set-variable"
-
 #include "logger.hpp"
 
 extern "C" {
@@ -47,7 +43,8 @@ extern "C" {
 #if !defined YAML_DISABLE_ARDUINOJSON
 
   #if defined ARDUINO_ARCH_SAMD || defined ARDUINO_ARCH_RP2040 || defined ESP8266
-    // those platforms don't have built-in cJSON so assume ArduinoJson is in use
+    // those platforms don't have built-in cJSON and __has_include() macro is limited to
+    // the sketch folder, so assume ArduinoJson is in use
     #include <Arduino.h>
     #include <assert.h>
     #include <ArduinoJson.h>
@@ -61,22 +58,34 @@ extern "C" {
 
 #endif
 
+#define YAML_SCALAR_SPACE " " // YAML is indented with spaces (2 or more), not tabs
+#define JSON_SCALAR_TAB "\t"  // JSON is indented with one tab as a default, this can be changed later
+#define JSON_FOLDING_DEPTH 4  // lame fact: folds on objects, not on arrays
+#define MAX_INDENT_DEPTH 16   // max amount of space/tab per indent level, doesn't seem reasonable to do more on embedded projects
+
+
+namespace YAML
+{
+  void setYAMLIndent( int spaces_per_indent=2 ); // min=2, max=16
+  void setJSONIndent( const char* spaces_or_tabs=JSON_SCALAR_TAB, int folding_depth=JSON_FOLDING_DEPTH );
+};
 
 // provide a default String::Stream reader/writer for internals
 class StringStream : public Stream
 {
 public:
   StringStream(String &s) : str(s), pos(0) {}
-  virtual ~StringStream() { };
+  virtual ~StringStream() {};
   virtual int available() { return str.length() - pos; }
   virtual int read() { return pos < str.length() ? str[pos++] : -1; }
   virtual int peek() { return pos < str.length() ? str[pos] : -1; }
-  virtual void flush() {}
   virtual size_t write(uint8_t c) { str += (char)c; return 1; }
+  virtual void flush() {}
 private:
   String &str;
   unsigned int pos;
 };
+
 
 
 // the base class
@@ -86,39 +95,73 @@ public:
   YAMLParser();
   ~YAMLParser();
 
+  // generic node type shared between json and yaml iterators
+  enum JNestingType_t { NONE, SEQ_KEY, MAP_KEY };
+  // wrapper struct passed when recursively parsing yaml_document
+  struct yaml_traverser_t
+  {
+    yaml_document_t* document;
+    yaml_node_t* node;
+    Stream* stream;
+    JNestingType_t type;
+    int depth;
+  };
+  // output emitter signature, points to serialize or deserialize (defaults to YAML output)
+  typedef size_t (*yaml_doc_processor_cb)( yaml_traverser_t *it );
+  // available output formats
+  enum OutputFormat_t { OUTPUT_YAML, OUTPUT_JSON, OUTPUT_JSON_PRETTY };
+
+  // output controls
+  void setOutputFormat( OutputFormat_t format );
   void setOutputStream( Stream* stream ) { _yaml_stream = stream; }
 
+  // yaml/json loaders (populates this.document)
   void load( const char* yaml_or_json_str );
   void load( Stream &yaml_or_json_stream );
 
-  void parse();
-  void parse( const char* yaml_or_json_str );
-  void parse( Stream &yaml_or_json_stream );
+  // the swiss-army knife functions:
+  // parse any of yaml/json input, and output as yaml, json ugly or json pretty
+  void parse( OutputFormat_t format=OUTPUT_YAML );
+  void parse( const char* yaml_or_json_str, OutputFormat_t format=OUTPUT_YAML );
+  void parse( Stream &yaml_or_json_stream, OutputFormat_t format=OUTPUT_YAML );
 
+  // explicit JSON exporters
+  template<typename T>
+  void toJson( T &yaml, bool pretty = true ) { load( yaml ); toJson( pretty ); }
+  void toJson( bool pretty = true ) { parse( pretty ? OUTPUT_JSON_PRETTY : OUTPUT_JSON ); }
+
+  // various getters
   yaml_document_t* getDocument() { return &document; }
   String getYamlString() { return _yaml_string; }
   size_t bytesWritten() { return _bytes_written; }
   size_t bytesRead()    { return _bytes_read; }
 
-  enum JNestingType_t { NONE, SEQ_KEY, MAP_KEY };
+  // error handling
   static void handle_parser_error(yaml_parser_t *parser);
   static void handle_emitter_error(yaml_emitter_t* emitter);
   static void setLogLevel( YAML::LogLevel_t level );
+
 private:
   size_t _bytes_read;
   size_t _bytes_written;
   String _yaml_string;
   Stream *_yaml_stream = nullptr;
   StringStream *_yaml_string_stream_ptr = nullptr;
-  void loadDocument();
+  void _loadDocument();
   yaml_document_t document;
-  yaml_parser_t     parser;
+  yaml_parser_t   parser;
+  OutputFormat_t  output_format;
+  yaml_doc_processor_cb output_cb;
 };
 
 typedef YAMLParser::JNestingType_t JNestingType_t;
+typedef YAMLParser::yaml_traverser_t yaml_traverser_t;
+typedef YAMLParser::OutputFormat_t OutputFormat_t;
 
-// JSON stream to JsonObject to YAML stream
-size_t serializeYml( Stream &json_src_stream, Stream &yml_dest_stream );
+
+// Pure libyaml JSON->YAML stream-to-stream seralization
+size_t serializeYml( Stream &json_src_stream, Stream &yml_dest_stream, OutputFormat_t format=YAMLParser::OUTPUT_YAML );
+
 
 
 #if defined HAS_ARDUINOJSON

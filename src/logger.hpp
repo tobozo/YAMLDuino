@@ -47,6 +47,10 @@
   #define HEAP_AVAILABLE() ESP.getFreeHeap()
   #define YAML_DEFAULT_LOG_LEVEL (LogLevel_t)ARDUHAL_LOG_LEVEL
   #define YAML_PATHNAME pathToFileName
+  // uncomment this if your espresssif32 package complains
+  //#pragma GCC diagnostic ignored "-Wunused-variable"
+  //#pragma GCC diagnostic ignored "-Wunused-but-set-variable"
+
 #elif defined ESP8266
   #include "Esp.h" // bring esp8266-arduino specifics to scope
   #define HEAP_AVAILABLE() ESP.getFreeHeap()
