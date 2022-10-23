@@ -26,7 +26,7 @@ jobs:
       esp8266_platform_url: https://arduino.esp8266.com/stable/package_esp8266com_index.json
       seeed_platform_url: https://files.seeedstudio.com/arduino/package_seeeduino_boards_index.json
       pico_platform_url: https://github.com/earlephilhower/arduino-pico/releases/download/global/package_rp2040_index.json
-      pico_cli_args: --build-property compiler.cpp.extra_flags=-DSKIP_I2C_TEST
+      #pico_cli_args: --build-property compiler.cpp.extra_flags=-DSKIP_I2C_TEST
 
     outputs:
       env: ${{steps.set-env.outputs.env}}
@@ -42,7 +42,6 @@ jobs:
 
   build:
     name: ${{matrix.board}}@${{matrix.platform-version}}
-
     runs-on: ubuntu-latest
     needs: set_env
     env: ${{fromJSON(needs.set_env.outputs.env)}}
