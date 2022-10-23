@@ -88,11 +88,11 @@ jobs:
 
           board[esp32]="https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_dev_index.json"
           board[esp8266]="https://arduino.esp8266.com/stable/package_esp8266com_index.json"
-          board[seeed]="https://files.seeedstudio.com/arduino/package_seeeduino_boards_index.json"
+          board[Seeeduino]="https://files.seeedstudio.com/arduino/package_seeeduino_boards_index.json"
           board[rp2040]="https://github.com/earlephilhower/arduino-pico/releases/download/global/package_rp2040_index.json"
           args[rp2040]="--build-property compiler.cpp.extra_flags=-DSKIP_I2C_TEST"
 
-          boardname=${{matrix.board}}
+          boardname=${{matrix.platform}}
 
           boardurl=${board[$boardname]}
           boardargs=${args[$boardname]}
