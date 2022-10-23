@@ -122,7 +122,7 @@ jobs:
 
           board_url=${board_urls[$board_name]}
           board_args=${cli_args[$board_name]}
-          #platform="${${{matrix.platform}}:${{matrix.archi}}@${{matrix.platform-version}}/@latest/""}"
+
           platform=${${{matrix.platform}}:${{matrix.archi}}@${{matrix.platform-version}}
 
           echo "ARDUINO_PLATFORM=$platform" >> $GITHUB_ENV
