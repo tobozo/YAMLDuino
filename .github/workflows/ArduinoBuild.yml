@@ -121,14 +121,15 @@ jobs:
 
           fbqn_extras[d1_mini]="${{env.d1_mini_fbqn_extra}}"
 
-          board_name=${{matrix.platform}}
+          platform_name=${{matrix.platform}}
+          board_name=${{matrix.board}}
 
-          board_url=${board_urls[$board_name]}
-          board_args=${cli_args[$board_name]}
+          board_url=${board_urls[$platform_name]}
+          board_args=${cli_args[$platform_name]}
           fqbn_extra=${fbqn_extras[$board_name]}
 
           platform=${{matrix.platform}}:${{matrix.archi}}@${{matrix.platform-version}}
-          fbqn="${{matrix.platform}}:${{matrix.archi}}:${{matrix.board}}$fqbn_extra"
+          fbqn=${{matrix.platform}}:${{matrix.archi}}:${{matrix.board}}${fqbn_extra}
 
           echo "ARDUINO_PLATFORM=$platform" >> $GITHUB_ENV
           echo "ARDUINO_PLATFORM_URL=$board_url" >> $GITHUB_ENV
