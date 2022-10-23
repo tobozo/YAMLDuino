@@ -25,7 +25,7 @@ jobs:
       Seeeduino_board_url: https://files.seeedstudio.com/arduino/package_seeeduino_boards_index.json
       rp2040_board_url: https://github.com/earlephilhower/arduino-pico/releases/download/global/package_rp2040_index.json
       #rp2040_cli_args: --build-property compiler.cpp.extra_flags=-DSKIP_I2C_TEST
-      rp2040_cli_args:
+      rp2040_cli_args: blah
 
     outputs:
       env: ${{steps.set-env.outputs.env}}
@@ -36,8 +36,8 @@ jobs:
         content='${{ toJson(env) }}'
         echo $content
         content="${content//'%'/'%25'}"
-        content="${content//$'\n'/''}"
-        content="${content//$'\r'/''}"
+        content="${content//$'\n'/' '}"
+        content="${content//$'\r'/' '}"
         echo "env=${content}" >> $GITHUB_OUTPUT
         # echo "::set-output name=env::${content}"
 
