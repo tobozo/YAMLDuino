@@ -25,6 +25,7 @@ jobs:
       Seeeduino_board_url: https://files.seeedstudio.com/arduino/package_seeeduino_boards_index.json
       rp2040_board_url: https://github.com/earlephilhower/arduino-pico/releases/download/global/package_rp2040_index.json
       #rp2040_cli_args: --build-property compiler.cpp.extra_flags=-DSKIP_I2C_TEST
+      rp2040_cli_args:
 
     outputs:
       env: ${{steps.set-env.outputs.env}}
@@ -113,7 +114,7 @@ jobs:
           board_urls[Seeeduino]=${{env.Seeeduino_board_url}}
           board_urls[rp2040]=${{env.rp2040_board_url}}
 
-#          cli_args[rp2040]="${{env.rp2040_cli_args}}"
+          cli_args[rp2040]="${{env.rp2040_cli_args}}"
 
           board_name=${{matrix.platform}}
 
