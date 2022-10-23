@@ -24,7 +24,8 @@ jobs:
       esp8266_board_url: https://arduino.esp8266.com/stable/package_esp8266com_index.json
       Seeeduino_board_url: https://files.seeedstudio.com/arduino/package_seeeduino_boards_index.json
       rp2040_board_url: https://github.com/earlephilhower/arduino-pico/releases/download/global/package_rp2040_index.json
-      rp2040_cli_args: --build-property compiler.cpp.extra_flags=-DSKIP_I2C_TEST
+      rp2040_cli_args: "--build-property compiler.cpp.extra_flags=-DSKIP_I2C_TEST"
+      d1_mini_fbqn_extra: ":eesz=4M3M,xtal=80"
 
     outputs:
       env: ${{steps.set-env.outputs.env}}
@@ -68,8 +69,8 @@ jobs:
 
         include:
           # multidimensional matrix doesn't apply to these profiles, so they are explicitely populated
-          - { board: 'd1_mini:eesz=4M3M,xtal=80', platform: esp8266,   archi: esp8266, platform-version: 3.0.1, ... }
-          - { board: 'd1_mini:eesz=4M3M,xtal=80', platform: esp8266,   archi: esp8266, platform-version: latest, ... }
+          - { board: d1_mini, platform: esp8266,   archi: esp8266, platform-version: 3.0.1, ... }
+          - { board: d1_mini, platform: esp8266,   archi: esp8266, platform-version: latest, ... }
           - { board: seeed_wio_terminal,          platform: Seeeduino, archi: samd,    platform-version: 1.8.2, ... }
           - { board: seeed_wio_terminal,          platform: Seeeduino, archi: samd,    platform-version: latest, ... }
           - { board: rpipico,                     platform: rp2040,    archi: rp2040,  platform-version: 2.3.3, ... }
@@ -109,6 +110,7 @@ jobs:
         run: |
           declare -A board_urls
           declare -A cli_args
+          declare -A fbqn_extras
 
           board_urls[esp32]=${{env.esp32_board_url}}
           board_urls[esp8266]=${{env.esp8266_board_url}}
@@ -117,22 +119,28 @@ jobs:
 
           cli_args[rp2040]="${{env.rp2040_cli_args}}"
 
+          fbqn_extras[d1_mini]=${{env.d1_mini_fbqn_extra}}
+
           board_name=${{matrix.platform}}
 
           board_url=${board_urls[$board_name]}
           board_args=${cli_args[$board_name]}
-          #platform="${${{matrix.platform}}:${{matrix.archi}}@${{matrix.platform-version}}/@latest/""}"
+          fqbn_extra=${fbqn_extras[$board_name]}
+
           platform=${{matrix.platform}}:${{matrix.archi}}@${{matrix.platform-version}}
+          fbqn=${{matrix.platform}}:${{matrix.archi}}:${{matrix.board}}${fqbn_extra}
 
           echo "ARDUINO_PLATFORM=$platform" >> $GITHUB_ENV
           echo "ARDUINO_PLATFORM_URL=$board_url" >> $GITHUB_ENV
           echo "ARDUINO_CLI_ARGS=$board_args" >> $GITHUB_ENV
+          echo "ARDUINO_BOARD_FQBN=$fbqn" >> $GITHUB_ENV
 
 
       - name: Compile example
         uses: ArminJo/arduino-test-compile@master
         with:
-          arduino-board-fqbn: ${{matrix.platform}}:${{matrix.archi}}:${{matrix.board}}
+          #arduino-board-fqbn: ${{matrix.platform}}:${{matrix.archi}}:${{matrix.board}}
+          arduino-board-fqbn: ${{env.ARDUINO_BOARD_FQBN}}
           arduino-platform: ${{env.ARDUINO_PLATFORM}}
           platform-url: ${{env.ARDUINO_PLATFORM_URL}}
           required-libraries: ArduinoJson
