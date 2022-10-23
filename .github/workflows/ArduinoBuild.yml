@@ -87,7 +87,7 @@ jobs:
       - name: FBQN Check
         run: |
           export ARDUINO_PLATFORM="${${{matrix.platform}}:${{matrix.archi}}@${{matrix.platform-version}}/@latest/""}"
-          echo "::set-env name=ARDUINO_PLATFORM::$ARDUINO_PLATFORM"
+          echo "ARDUINO_PLATFORM=$ARDUINO_PLATFORM" >> $GITHUB_ENV
 
       - name: Compile example
         uses: ArminJo/arduino-test-compile@v3
