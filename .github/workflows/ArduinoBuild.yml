@@ -48,6 +48,7 @@ jobs:
     env: ${{fromJSON(needs.set_env.outputs.env)}}
 
     strategy:
+      fail-fast: false
       matrix:
 
         board:
@@ -98,7 +99,7 @@ jobs:
           - { board: esp32c3, platform-version: 2.0.0 }
 
 
-      fail-fast: false
+
 
     steps:
       - name: Checkout
@@ -108,33 +109,38 @@ jobs:
 
       - name: Prepare variables for arduino-test-compile
         run: |
+          # prepare some associative arrays to receive matrix-specific env vars
           declare -A board_urls
           declare -A cli_args
           declare -A fbqn_extras
 
+          # assign package URLs (per platform)
           board_urls[esp32]=${{env.esp32_board_url}}
           board_urls[esp8266]=${{env.esp8266_board_url}}
           board_urls[Seeeduino]=${{env.Seeeduino_board_url}}
           board_urls[rp2040]=${{env.rp2040_board_url}}
 
+          # assign optional cli args (per platform)
           cli_args[rp2040]="${{env.rp2040_cli_args}}"
 
+          # assign optional extra FQBN info (per board)
           fbqn_extras[d1_mini]="${{env.d1_mini_fbqn_extra}}"
 
-          platform_name=${{matrix.platform}}
+          # collect the index names that will be used to populate the associative array
           board_name=${{matrix.board}}
+          platform_name=${{matrix.platform}}
 
-          board_url=${board_urls[$platform_name]}
-          board_args=${cli_args[$platform_name]}
-          fqbn_extra=${fbqn_extras[$board_name]}
+          # populate values for the next step
+          arduino_platform_url=${board_urls[$platform_name]}
+          arduino_cli_args=${cli_args[$platform_name]}
+          arduino_board_fqbn=${{matrix.platform}}:${{matrix.archi}}:${{matrix.board}}${fbqn_extras[$board_name]}
+          arduino_platform=${{matrix.platform}}:${{matrix.archi}}@${{matrix.platform-version}}
 
-          platform=${{matrix.platform}}:${{matrix.archi}}@${{matrix.platform-version}}
-          fbqn=${{matrix.platform}}:${{matrix.archi}}:${{matrix.board}}${fqbn_extra}
-
-          echo "ARDUINO_PLATFORM=$platform" >> $GITHUB_ENV
-          echo "ARDUINO_PLATFORM_URL=$board_url" >> $GITHUB_ENV
-          echo "ARDUINO_CLI_ARGS=$board_args" >> $GITHUB_ENV
-          echo "ARDUINO_BOARD_FQBN=$fbqn" >> $GITHUB_ENV
+          # export to env
+          echo "ARDUINO_PLATFORM=$arduino_platform" >> $GITHUB_ENV
+          echo "ARDUINO_PLATFORM_URL=$arduino_platform_url" >> $GITHUB_ENV
+          echo "ARDUINO_CLI_ARGS=$arduino_cli_args" >> $GITHUB_ENV
+          echo "ARDUINO_BOARD_FQBN=$arduino_board_fqbn" >> $GITHUB_ENV
 
 
       - name: Compile example
@@ -146,7 +152,6 @@ jobs:
           platform-url: ${{env.ARDUINO_PLATFORM_URL}}
           required-libraries: ArduinoJson
           extra-arduino-cli-args: ${{env.ARDUINO_CLI_ARGS}}
-          #extra-arduino-cli-args: ${{ matrix.cli-args }}
           #build-properties: ${{ toJson(matrix.build-properties) }}
           sketch-names: ${{ env.SKETCH_NAME }}
           #sketches-exclude: ${{ matrix.sketches-exclude }}
