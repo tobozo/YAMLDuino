@@ -33,13 +33,11 @@ jobs:
     # export at output variables, flatten as JSON
     - id: set-env
       run: |
-        content='${{ toJson(env) }}'
-        echo $content
-        content="${content//'%'/'%25'}"
-        content="${content//$'\n'/''}"
-        content="${content//$'\r'/''}"
+        content='${{ toJson(env) }}'    # convert env vars to json
+        content="${content//'%'/'%25'}" # escape percent entities
+        content="${content//$'\n'/''}"  # remove lf
+        content="${content//$'\r'/''}"  # remove cr
         echo "env=${content}" >> $GITHUB_OUTPUT
-        # echo "::set-output name=env::${content}"
 
   build:
     name: ${{matrix.board}}@${{matrix.platform-version}}
@@ -70,21 +68,24 @@ jobs:
 
         include:
           # multidimensional matrix doesn't apply to these profiles, so they are explicitely populated
-          - { board: d1_mini, platform: esp8266,   archi: esp8266, platform-version: 3.0.1, ... }
-          - { board: d1_mini, platform: esp8266,   archi: esp8266, platform-version: latest, ... }
-          - { board: seeed_wio_terminal,          platform: Seeeduino, archi: samd,    platform-version: 1.8.2, ... }
-          - { board: seeed_wio_terminal,          platform: Seeeduino, archi: samd,    platform-version: latest, ... }
-          - { board: rpipico,                     platform: rp2040,    archi: rp2040,  platform-version: 2.3.3, ... }
-          - { board: rpipico,                     platform: rp2040,    archi: rp2040,  platform-version: latest, ... }
+
+          - { board: d1_mini,            platform: esp8266,   arch: esp8266, platform-version: 3.0.1, ... }
+          - { board: d1_mini,            platform: esp8266,   arch: esp8266, platform-version: latest, ... }
+
+          - { board: seeed_wio_terminal, platform: Seeeduino, arch: samd,    platform-version: 1.8.2, ... }
+          - { board: seeed_wio_terminal, platform: Seeeduino, arch: samd,    platform-version: latest, ... }
+
+          - { board: rpipico,            platform: rp2040,    arch: rp2040,  platform-version: 2.3.3, ... }
+          - { board: rpipico,            platform: rp2040,    arch: rp2040,  platform-version: latest, ... }
 
           # multidimensional matrix applies to these:
-          - { board: esp32,   platform: esp32, archi: esp32, ... }
-          - { board: esp32s2, platform: esp32, archi: esp32, ... }
-          - { board: esp32s3, platform: esp32, archi: esp32, ... }
-          - { board: esp32c3, platform: esp32, archi: esp32, ... }
+          - { board: esp32,   platform: esp32, arch: esp32, ... }
+          - { board: esp32s2, platform: esp32, arch: esp32, ... }
+          - { board: esp32s3, platform: esp32, arch: esp32, ... }
+          - { board: esp32c3, platform: esp32, arch: esp32, ... }
 
         exclude:
-          # multidimensional matrix excludes these (no support or unstable):
+          # multidimensional matrix excludes (no support or unstable):
 
           - { board: esp32s2, platform-version: 1.0.6 }
           - { board: esp32s2, platform-version: 2.0.0 }
@@ -103,7 +104,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           ref: ${{ github.event.pull_request.head.sha }}
 
@@ -133,8 +134,8 @@ jobs:
           # populate values for the next step
           arduino_platform_url=${board_urls[$platform_name]}
           arduino_cli_args=${cli_args[$platform_name]}
-          arduino_board_fqbn=${{matrix.platform}}:${{matrix.archi}}:${{matrix.board}}${fbqn_extras[$board_name]}
-          arduino_platform=${{matrix.platform}}:${{matrix.archi}}@${{matrix.platform-version}}
+          arduino_board_fqbn=${{matrix.platform}}:${{matrix.arch}}:${{matrix.board}}${fbqn_extras[$board_name]}
+          arduino_platform=${{matrix.platform}}:${{matrix.arch}}@${{matrix.platform-version}}
 
           # export to env
           echo "ARDUINO_PLATFORM=$arduino_platform" >> $GITHUB_ENV
@@ -146,7 +147,6 @@ jobs:
       - name: Compile example
         uses: ArminJo/arduino-test-compile@master
         with:
-          #arduino-board-fqbn: ${{matrix.platform}}:${{matrix.archi}}:${{matrix.board}}
           arduino-board-fqbn: ${{env.ARDUINO_BOARD_FQBN}}
           arduino-platform: ${{env.ARDUINO_PLATFORM}}
           platform-url: ${{env.ARDUINO_PLATFORM_URL}}
