@@ -29,14 +29,14 @@ jobs:
           - ArduinoJson
 
         board:
-          # ESP32 devices for 3D matrix
+          # ESP32 devices for multidimensional matrix
           - esp32
           - esp32s2
           - esp32s3
           - esp32c3
 
         platform-version:
-          # ESP32 Core versions for 3D matrix
+          # ESP32 Core versions for multidimensional matrix
           - 1.0.6
           - 2.0.0
           - 2.0.1
@@ -44,24 +44,23 @@ jobs:
           - 2.0.3
           - 2.0.4
           - 2.0.5
-          -
-          #- latest
+          - latest
 
         include:
-          # 3D matrix doesn't apply to these profiles, so they are implicitely listed
+          # multidimensional matrix doesn't apply to these profiles, so they are implicitely listed
           - { board: 'd1_mini:eesz=4M3M,xtal=80', platform: esp8266, archi: esp8266, platform-version: 3.0.1, platform-url: 'https://arduino.esp8266.com/stable/package_esp8266com_index.json', ... }
           - { board: 'd1_mini:eesz=4M3M,xtal=80', platform: esp8266, archi: esp8266, platform-version: 3.0.2, platform-url: 'https://arduino.esp8266.com/stable/package_esp8266com_index.json', ... }
           - { board: seeed_wio_terminal,    platform: Seeeduino, archi: samd,    platform-version: 1.8.2, platform-url: 'https://files.seeedstudio.com/arduino/package_seeeduino_boards_index.json',  ... }
           - { board: rpipico, platform: rp2040, archi: rp2040, platform-version: 2.3.3, cli-args: '--build-property compiler.cpp.extra_flags=-DSKIP_I2C_TEST', platform-url: 'https://github.com/earlephilhower/arduino-pico/releases/download/global/package_rp2040_index.json', ... }
 
-          # 3D matrix applies to these:
+          # multidimensional matrix applies to these:
           - { board: esp32,   platform: esp32, archi: esp32, ... }
           - { board: esp32s2, platform: esp32, archi: esp32, ... }
           - { board: esp32s3, platform: esp32, archi: esp32, ... }
           - { board: esp32c3, platform: esp32, archi: esp32, ... }
 
         exclude:
-          # 3D matrix excludes these:
+          # multidimensional matrix excludes these:
           - { board: esp32s2, platform-version: 1.0.6 }
           - { board: esp32s2, platform-version: 2.0.0 }
 
