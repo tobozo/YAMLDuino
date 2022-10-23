@@ -46,7 +46,7 @@ jobs:
 
         include:
           # multidimensional matrix doesn't apply to these profiles, so they are implicitely listed
-          - { board: 'd1_mini:eesz=4M3M,xtal=80', platform: esp8266,   archi: esp8266, platform-version: 3.0.1, , ... }
+          - { board: 'd1_mini:eesz=4M3M,xtal=80', platform: esp8266,   archi: esp8266, platform-version: 3.0.1, ... }
           - { board: 'd1_mini:eesz=4M3M,xtal=80', platform: esp8266,   archi: esp8266, platform-version: latest, ... }
           - { board: seeed_wio_terminal,          platform: Seeeduino, archi: samd,    platform-version: 1.8.2, ... }
           - { board: rpipico,                     platform: rp2040,    archi: rp2040,  platform-version: latest, ... }
