@@ -17,19 +17,19 @@ on:
 jobs:
 
   set_env:
-    name: "Set environment"
+    name: "Set matrix env vars"
     runs-on: ubuntu-latest
     env:
       esp32_board_url: https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_dev_index.json
       esp8266_board_url: https://arduino.esp8266.com/stable/package_esp8266com_index.json
       Seeeduino_board_url: https://files.seeedstudio.com/arduino/package_seeeduino_boards_index.json
       rp2040_board_url: https://github.com/earlephilhower/arduino-pico/releases/download/global/package_rp2040_index.json
-      rp2040_cli_args: --build-property compiler.cpp.extra_flags=-DSKIP_I2C_TEST"
+      rp2040_cli_args: "--build-property compiler.cpp.extra_flags=-DSKIP_I2C_TEST"
 
     outputs:
       env: ${{steps.set-env.outputs.env}}
     steps:
-    # Avoid multiline: flatten JSON
+    # export at output variables, flatten as JSON
     - id: set-env
       run: |
         content='${{ toJson(env) }}'
@@ -65,7 +65,7 @@ jobs:
           - latest
 
         include:
-          # multidimensional matrix doesn't apply to these profiles, so they are implicitely listed
+          # multidimensional matrix doesn't apply to these profiles, so they are explicitely populated
           - { board: 'd1_mini:eesz=4M3M,xtal=80', platform: esp8266,   archi: esp8266, platform-version: 3.0.1, ... }
           - { board: 'd1_mini:eesz=4M3M,xtal=80', platform: esp8266,   archi: esp8266, platform-version: latest, ... }
           - { board: seeed_wio_terminal,          platform: Seeeduino, archi: samd,    platform-version: 1.8.2, ... }
@@ -80,7 +80,7 @@ jobs:
           - { board: esp32c3, platform: esp32, archi: esp32, ... }
 
         exclude:
-          # multidimensional matrix excludes these:
+          # multidimensional matrix excludes these (no support or unstable):
 
           - { board: esp32s2, platform-version: 1.0.6 }
           - { board: esp32s2, platform-version: 2.0.0 }
@@ -103,27 +103,27 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha }}
 
-      - name: FBQN Check
+      - name: Prepare variables for arduino-test-compile
         run: |
-          export ARDUINO_PLATFORM="${${{matrix.platform}}:${{matrix.archi}}@${{matrix.platform-version}}/@latest/""}"
-          echo "ARDUINO_PLATFORM=$ARDUINO_PLATFORM" >> $GITHUB_ENV
+          declare -A board_urls
+          declare -A cli_args
 
-          declare -A board
-          declare -A args
+          board_urls[esp32]=${{env.esp32_board_url}}
+          board_urls[esp8266]=${{env.esp8266_board_url}}
+          board_urls[Seeeduino]=${{env.Seeeduino_board_url}}
+          board_urls[rp2040]=${{env.rp2040_board_url}}
 
-          board[esp32]=${{env.esp32_board_url}}
-          board[esp8266]=${{env.esp8266_board_url}}
-          board[Seeeduino]=${{env.Seeeduino_board_url}}
-          board[rp2040]=${{env.rp2040_board_url}}
-          args[rp2040]="${{env.rp2040_cli_args}}"
+          cli_args[rp2040]="${{env.rp2040_cli_args}}"
 
-          boardname=${{matrix.platform}}
+          board_name=${{matrix.platform}}
 
-          boardurl=${board[$boardname]}
-          boardargs=${args[$boardname]}
+          board_url=${board_urls[$board_name]}
+          board_args=${cli_args[$board_name]}
+          platform="${${{matrix.platform}}:${{matrix.archi}}@${{matrix.platform-version}}/@latest/""}"
 
-          echo "ARDUINO_PLATFORM_URL=$boardurl" >> $GITHUB_ENV
-          echo "ARDUINO_CLI_ARGS=$boardargs" >> $GITHUB_ENV
+          echo "ARDUINO_PLATFORM=$platform" >> $GITHUB_ENV
+          echo "ARDUINO_PLATFORM_URL=$board_url" >> $GITHUB_ENV
+          echo "ARDUINO_CLI_ARGS=$board_args" >> $GITHUB_ENV
 
 
       - name: Compile example
@@ -132,9 +132,7 @@ jobs:
           arduino-board-fqbn: ${{matrix.platform}}:${{matrix.archi}}:${{matrix.board}}
           arduino-platform: ${{env.ARDUINO_PLATFORM}}
           platform-url: ${{env.ARDUINO_PLATFORM_URL}}
-          #platform-url: ${{ matrix.platform-url }}
           required-libraries: ArduinoJson
-          #required-libraries: ${{ matrix.required-libraries }}
           extra-arduino-cli-args: ${{env.ARDUINO_CLI_ARGS}}
           #extra-arduino-cli-args: ${{ matrix.cli-args }}
           #build-properties: ${{ toJson(matrix.build-properties) }}
