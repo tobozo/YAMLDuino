@@ -24,8 +24,8 @@ jobs:
       esp8266_board_url: https://arduino.esp8266.com/stable/package_esp8266com_index.json
       Seeeduino_board_url: https://files.seeedstudio.com/arduino/package_seeeduino_boards_index.json
       rp2040_board_url: https://github.com/earlephilhower/arduino-pico/releases/download/global/package_rp2040_index.json
-      rp2040_cli_args: --build-property compiler.cpp.extra_flags=-DSKIP_I2C_TEST
-      #rp2040_cli_args:
+      #rp2040_cli_args: --build-property compiler.cpp.extra_flags=-DSKIP_I2C_TEST
+      rp2040_cli_args:
 
     outputs:
       env: ${{steps.set-env.outputs.env}}
@@ -37,8 +37,8 @@ jobs:
         content="${content//'%'/'%25'}"
         content="${content//$'\n'/'%0A'}"
         content="${content//$'\r'/'%0D'}"
-        # echo "env=${content}" >> $GITHUB_OUTPUT
-        echo "::set-output name=env::${content}"
+        echo "env=${content}" >> $GITHUB_OUTPUT
+        # echo "::set-output name=env::${content}"
 
   build:
     name: ${{matrix.board}}@${{matrix.platform-version}}
