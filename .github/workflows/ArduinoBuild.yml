@@ -36,8 +36,8 @@ jobs:
         content='${{ toJson(env) }}'
         echo $content
         content="${content//'%'/'%25'}"
-        content="${content//$'\n'/'%0A'}"
-        content="${content//$'\r'/'%0D'}"
+        content="${content//$'\n'/''}"
+        content="${content//$'\r'/''}"
         echo "env='${content}'" >> $GITHUB_OUTPUT
         # echo "::set-output name=env::${content}"
 
@@ -122,7 +122,8 @@ jobs:
 
           board_url=${board_urls[$board_name]}
           board_args=${cli_args[$board_name]}
-          platform="${${{matrix.platform}}:${{matrix.archi}}@${{matrix.platform-version}}/@latest/""}"
+          #platform="${${{matrix.platform}}:${{matrix.archi}}@${{matrix.platform-version}}/@latest/""}"
+          platform=${${{matrix.platform}}:${{matrix.archi}}@${{matrix.platform-version}}
 
           echo "ARDUINO_PLATFORM=$platform" >> $GITHUB_ENV
           echo "ARDUINO_PLATFORM_URL=$board_url" >> $GITHUB_ENV
@@ -130,7 +131,7 @@ jobs:
 
 
       - name: Compile example
-        uses: ArminJo/arduino-test-compile@v3
+        uses: ArminJo/arduino-test-compile@master
         with:
           arduino-board-fqbn: ${{matrix.platform}}:${{matrix.archi}}:${{matrix.board}}
           arduino-platform: ${{env.ARDUINO_PLATFORM}}
