@@ -34,10 +34,11 @@ jobs:
     - id: set-env
       run: |
         content='${{ toJson(env) }}'
-        # content="${content//'%'/'%25'}"
-        # content="${content//$'\n'/'%0A'}"
-        # content="${content//$'\r'/'%0D'}"
-        echo "env=$content" >> $GITHUB_OUTPUT
+        echo $content
+        content="${content//'%'/'%25'}"
+        content="${content//$'\n'/'%0A'}"
+        content="${content//$'\r'/'%0D'}"
+        echo "env=\"${content}\"" >> $GITHUB_OUTPUT
         # echo "::set-output name=env::${content}"
 
   build:
