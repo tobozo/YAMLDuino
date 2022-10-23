@@ -49,23 +49,23 @@ or
 YAML is a superset of JSON, so native conversion from/to JSON is possible without any additional JSON library.
 
 ```cpp
-  // JSON <=> YAML stream to stream conversion (both ways!), accepts valid JSON or YAML as the input
-  // Available values for output format:
-  //   YAMLParser::OUTPUT_YAML
-  //   YAMLParser::OUTPUT_JSON
-  //   YAMLParser::OUTPUT_JSON_PRETTY
-  size_t serializeYml( Stream &source, Stream &destination, OutputFormat_t format );
+// JSON <=> YAML stream to stream conversion (both ways!).
+// Accepts valid JSON or YAML as the input.
+// Available values for output format:
+//   YAMLParser::OUTPUT_YAML
+//   YAMLParser::OUTPUT_JSON
+//   YAMLParser::OUTPUT_JSON_PRETTY
+size_t serializeYml( Stream &source, Stream &destination, OutputFormat_t format );
 
 ```
 
 
 **Convert YAML to JSON**
 ```cpp
+String yaml_str = "hello: world\nboolean: true\nfloat: 1.2345";
+StringStream yaml_stream( yaml_str );
 
-  String yaml_str = "hello: world\nboolean: true\nfloat: 1.2345";
-  StringStream yaml_stream( yaml_str );
-
-  serializeYml( yaml_stream, Serial, YAMLParser::OUTPUT_JSON_PRETTY );
+serializeYml( yaml_stream, Serial, YAMLParser::OUTPUT_JSON_PRETTY );
 
 ```
 
@@ -73,11 +73,10 @@ YAML is a superset of JSON, so native conversion from/to JSON is possible withou
 
 **Convert JSON to YAML**
 ```cpp
+String json_str = "{\"hello\": \"world\", \"boolean\": true, \"float\":1.2345}";
+StringStream json_stream( json_str );
 
-  String json_str = "{\"hello\": \"world\", \"boolean\": true, \"float\":1.2345}";
-  StringStream json_stream( json_str );
-
-  serializeYml( json_stream, Serial, YAMLParser::OUTPUT_YAML );
+serializeYml( json_stream, Serial, YAMLParser::OUTPUT_YAML );
 
 ```
 
@@ -102,7 +101,7 @@ So all ArduinoJson functions will be disabled unless `#include <ArduinoJson.h>` 
 On ESP8266/RP2040/SAMD platforms it is assumed that ArduinoJson is already available as a dependency.
 
 
-In order to save flash space and/or memory, the defaults bindings can be disabled independently by setting one or all of the
+In order to save flash space and/or memory, the default bindings can be disabled independently by setting one or all of the
 following macros before including ArduinoYaml:
 
 ```cpp
@@ -120,29 +119,32 @@ Note to readers: should ArduinoJson and/or cJSON be implicitely loaded?
 
 ## ArduinoJson bindings
 
-The support is implicitely enabled on most platforms.
+See the [motivational post](https://github.com/bblanchon/ArduinoJson/issues/1808) for this implementation.
+
+ArduinoJson support is implicitely enabled on most platforms except for ESP32 where dependencies can be detected.
 
 
 ```cpp
-  #include <ArduinoJson.h> // ESP32 plaforms must include this before ArduinoYaml or functions will be disabled
-  #include <ArduinoYaml.h>
+// ESP32 plaforms must include ArduinoJson before ArduinoYaml or functions will be disabled
+#include <ArduinoJson.h>
+#include <ArduinoYaml.h>
 ```
 
 Enabling support will expose the following functions:
 
 ```cpp
-  // ArduinoJSON object to YAML string
-  size_t serializeYml( JsonVariant src_obj, String &dest_string );
-  // ArduinoJSON object to YAML stream
-  size_t serializeYml( JsonVariant src_obj, Stream &dest_stream );
-  // Deserialize YAML string to ArduinoJSON object
-  DeserializationError deserializeYml( JsonObject &dest_obj, const char* src_yaml_str );
-  // Deserialize YAML stream to ArduinoJSON object
-  DeserializationError deserializeYml( JsonObject &dest_obj, Stream &src_stream );
-  // Deserialize YAML string to ArduinoJSON document
-  DeserializationError deserializeYml( JsonDocument &dest_doc, Stream &src_stream );
-  // Deserialize YAML string to ArduinoJSON document
-  DeserializationError deserializeYml( JsonDocument &dest_doc, const char *src_yaml_str) ;
+// ArduinoJSON object to YAML string
+size_t serializeYml( JsonVariant src_obj, String &dest_string );
+// ArduinoJSON object to YAML stream
+size_t serializeYml( JsonVariant src_obj, Stream &dest_stream );
+// Deserialize YAML string to ArduinoJSON object
+DeserializationError deserializeYml( JsonObject &dest_obj, const char* src_yaml_str );
+// Deserialize YAML stream to ArduinoJSON object
+DeserializationError deserializeYml( JsonObject &dest_obj, Stream &src_stream );
+// Deserialize YAML string to ArduinoJSON document
+DeserializationError deserializeYml( JsonDocument &dest_doc, Stream &src_stream );
+// Deserialize YAML string to ArduinoJSON document
+DeserializationError deserializeYml( JsonDocument &dest_doc, const char *src_yaml_str) ;
 
 ```
 
@@ -150,11 +152,11 @@ Enabling support will expose the following functions:
 
 ## cJSON bindinds
 
-The support is implicitely enabled on most platforms and will use the bundled cJSON version.
-ESP32 will use the built-in version.
+cJSON support is implicitely enabled on most platforms, and will use the bundled cJSON version unless ESP32 platform is detected.
+ESP32 will use the built-in cJSON version from esp-idf instead of the YAMLDuino bundled version.
 
 
-⚠️ both versions of cJSON have a memory leak with floats, the leak happens only once though, and
+⚠️ Both versions of cJSON have a memory leak with floats, the leak happens only once though, and
 may be avoided by quoting the float, which won't affect yaml output.
 
 
@@ -162,14 +164,14 @@ Enabling support will expose the following functions:
 
 ```cpp
 
-  // cJSON object to YAML string
-  size_t serializeYml( cJSON* src_obj, String &dest_string );
-  // cJSON object to YAML stream
-  size_t serializeYml( cJSON* src_obj, Stream &dest_stream );
-  // YAML string to cJSON object
-  int deserializeYml( cJSON* dest_obj, const char* src_yaml_str );
-  // YAML stream to cJSON object
-  int deserializeYml( cJSON* dest_obj, Stream &src_stream );
+// cJSON object to YAML string
+size_t serializeYml( cJSON* src_obj, String &dest_string );
+// cJSON object to YAML stream
+size_t serializeYml( cJSON* src_obj, Stream &dest_stream );
+// YAML string to cJSON object
+int deserializeYml( cJSON* dest_obj, const char* src_yaml_str );
+// YAML stream to cJSON object
+int deserializeYml( cJSON* dest_obj, Stream &src_stream );
 
 ```
 
@@ -183,12 +185,11 @@ The `StringStream` class is provided with this library as a helper.
 
 ```cpp
 
-  String my_json = "{\"blah\":true}";
+String my_json = "{\"blah\":true}";
+StringStream json_input_stream(my_json);
 
-  StringStream json_input_stream(my_json);
-
-  String my_output;
-  StringStream output_stream(my_output);
+String my_output;
+StringStream output_stream(my_output);
 
 ```
 
@@ -224,8 +225,8 @@ JSON and YAML indentation levels can be customized:
 
 
 ```cpp
-  void YAML::setYAMLIndent( int spaces_per_indent=2 ); // min=2, max=16
-  void YAML::setJSONIndent( const char* spaces_or_tabs=JSON_SCALAR_TAB, int folding_depth=JSON_FOLDING_DEPTH );
+void YAML::setYAMLIndent( int spaces_per_indent=2 ); // min=2, max=16
+void YAML::setJSONIndent( const char* spaces_or_tabs="\t", int folding_depth=4 );
 
 ```
 
@@ -233,7 +234,7 @@ JSON and YAML indentation levels can be customized:
 Set custom JSON indentation and folding depth:
 
 ```cpp
-// two spaces per indentation level, unfold up to 8 nesting levels
+// this set two spaces per indentation level, unfolds up to 8 nesting levels
 YAMLParser::setJSONIndent("  ", 8 ); // lame fact: folds on objects, not on arrays
 
 ```
@@ -258,7 +259,7 @@ The debug level can be changed at runtime:
 
 
 ```cpp
-  void YAML::setLogLevel( LogLevel_t level );
+void YAML::setLogLevel( LogLevel_t level );
 ```
 
 Set library debug level:
@@ -277,12 +278,31 @@ YAMLParser::setLogLevel( YAML::LogLevelDebug );
 
 ----------------------------
 
+
+## Support the Project
+
+There are a few things you can do to support the project:
+
+  - Star 🌟 this [repository](https://github.com/tobozo/YAMLDuino) and/or [follow me](https://github.com/tobozo/) on GitHub
+  - Share and upvote on sites like Twitter, Reddit, and Hacker News
+  - [Report](https://github.com/tobozo/YAMLDuino/issues) any bugs, glitches, or errors that you find
+
+
+These things motivate me to to keep sharing what I build, and they provide
+validation that my work is appreciated! They also help me improve the
+project. Thanks in advance!
+
+
+----------------------------
+
 ## Credits and special thanks to:
 
   - [@yaml](https://github.com/yaml)
   - [@DaveGamble](https://github.com/DaveGamble)
   - [@bblanchon](https://github.com/bblanchon)
   - [@vikman90](https://github.com/vikman90/yaml2json)
+
+
 
 ## Additional resources:
 
