@@ -93,7 +93,7 @@ jobs:
         uses: ArminJo/arduino-test-compile@v3
         with:
           arduino-board-fqbn: ${{matrix.platform}}:${{matrix.archi}}:${{matrix.board}}
-          arduino-platform: ${{ARDUINO_PLATFORM}}
+          arduino-platform: ${{env.ARDUINO_PLATFORM}}
           platform-url: ${{ matrix.platform-url }}
           required-libraries: ArduinoJson
           #required-libraries: ${{ matrix.required-libraries }}
