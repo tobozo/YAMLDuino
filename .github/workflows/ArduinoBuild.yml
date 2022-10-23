@@ -42,7 +42,7 @@ jobs:
           - 2.0.3
           - 2.0.4
           - 2.0.5
-          #- latest
+          - latest
 
         include:
           # multidimensional matrix doesn't apply to these profiles, so they are implicitely listed
@@ -59,7 +59,6 @@ jobs:
 
         exclude:
           # multidimensional matrix excludes these:
-          - { board: esp32,   platform-version: 2.0.1 }
 
           - { board: esp32s2, platform-version: 1.0.6 }
           - { board: esp32s2, platform-version: 2.0.0 }
@@ -85,11 +84,16 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha }}
 
+      - name: FBQN Check
+        run: |
+          export ARDUINO_PLATFORM="${${{matrix.platform}}:${{matrix.archi}}@${{matrix.platform-version}}/@latest/""}"
+          echo "::set-env name=ARDUINO_PLATFORM::$ARDUINO_PLATFORM"
+
       - name: Compile example
         uses: ArminJo/arduino-test-compile@v3
         with:
           arduino-board-fqbn: ${{matrix.platform}}:${{matrix.archi}}:${{matrix.board}}
-          arduino-platform: ${{matrix.platform}}:${{matrix.archi}}@${{matrix.platform-version}}
+          arduino-platform: ${{ARDUINO_PLATFORM}}
           platform-url: ${{ matrix.platform-url }}
           required-libraries: ArduinoJson
           #required-libraries: ${{ matrix.required-libraries }}
