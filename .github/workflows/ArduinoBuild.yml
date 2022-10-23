@@ -36,7 +36,7 @@ jobs:
         content="${content//'%'/'%25'}"
         content="${content//$'\n'/'%0A'}"
         content="${content//$'\r'/'%0D'}"
-        echo "::set-output name=env::$content"
+        echo "env=$content" >> $GITHUB_OUTPUT
 
   build:
     name: ${{matrix.board}}@${{matrix.platform-version}}
@@ -112,10 +112,10 @@ jobs:
           declare -A args
 
           board[esp32]=${{env.esp32_board_url}}
-          board[esp8266]="https://arduino.esp8266.com/stable/package_esp8266com_index.json"
-          board[Seeeduino]="https://files.seeedstudio.com/arduino/package_seeeduino_boards_index.json"
-          board[rp2040]="https://github.com/earlephilhower/arduino-pico/releases/download/global/package_rp2040_index.json"
-          args[rp2040]="--build-property compiler.cpp.extra_flags=-DSKIP_I2C_TEST"
+          board[esp8266]=${{env.esp8266_board_url}}
+          board[Seeeduino]=${{env.Seeeduino_board_url}}
+          board[rp2040]=${{env.rp2040_board_url}}
+          args[rp2040]="${{env.rp2040_cli_args}}"
 
           boardname=${{matrix.platform}}
 
