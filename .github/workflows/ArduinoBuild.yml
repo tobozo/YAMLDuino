@@ -38,7 +38,7 @@ jobs:
         content="${content//'%'/'%25'}"
         content="${content//$'\n'/''}"
         content="${content//$'\r'/''}"
-        echo "env='${content}'" >> $GITHUB_OUTPUT
+        echo "env=${content}" >> $GITHUB_OUTPUT
         # echo "::set-output name=env::${content}"
 
   build:
