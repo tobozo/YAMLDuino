@@ -16,21 +16,36 @@ on:
 
 jobs:
 
-  export-board-urls:
 
-    - name: Board URLs exporter
+  set_env:
+
+    name: "Set environment"
+    runs-on: ubuntu-latest
+    env:
+      esp32-platform-url: https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_dev_index.json
+      esp8266-platform-url: https://arduino.esp8266.com/stable/package_esp8266com_index.json
+      seeed-platform-url: https://files.seeedstudio.com/arduino/package_seeeduino_boards_index.json
+      pico-platform-url: https://github.com/earlephilhower/arduino-pico/releases/download/global/package_rp2040_index.json
+      pico-cli-args: --build-property compiler.cpp.extra_flags=-DSKIP_I2C_TEST
+
+    outputs:
+      env: ${{steps.set-env.outputs.env}}
+    steps:
+    # Avoid multiline: flatten JSON
+    - id: set-env
       run: |
-        echo "esp32-platform-url=https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_dev_index.json" >> $GITHUB_ENV
-        echo "esp8266-platform-url=https://arduino.esp8266.com/stable/package_esp8266com_index.json" >> $GITHUB_ENV
-        echo "seeed-platform-url=https://files.seeedstudio.com/arduino/package_seeeduino_boards_index.json" >> $GITHUB_ENV
-        echo "pico-platform-url=https://github.com/earlephilhower/arduino-pico/releases/download/global/package_rp2040_index.json" >> $GITHUB_ENV
-        echo "pico-cli-args=${"--build-property compiler.cpp.extra_flags=-DSKIP_I2C_TEST"}" >> $GITHUB_ENV
-
+        content='${{ toJson(env) }}'
+        content="${content//'%'/'%25'}"
+        content="${content//$'\n'/'%0A'}"
+        content="${content//$'\r'/'%0D'}"
+        echo "::set-output name=env::$content"
 
   build:
     name: ${{matrix.board}}@${{matrix.platform-version}}
 
     runs-on: ubuntu-latest
+    needs: set_env
+    env: ${{fromJSON(needs.set_env.outputs.env)}}
 
     strategy:
       matrix:
