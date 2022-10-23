@@ -35,8 +35,8 @@ jobs:
         content='${{ toJson(env) }}'
         echo $content
         content="${content//'%'/'%25'}"
-        content="${content//$'\n'/' '}"
-        content="${content//$'\r'/' '}"
+        content="${content//$'\n'/''}"
+        content="${content//$'\r'/''}"
         echo "env=${content}" >> $GITHUB_OUTPUT
         # echo "::set-output name=env::${content}"
 
