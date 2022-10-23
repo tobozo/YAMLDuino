@@ -25,8 +25,6 @@ jobs:
 
         platform-url:
           - https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_dev_index.json
-        required-libraries:
-          - ArduinoJson
 
         board:
           # ESP32 devices for multidimensional matrix
@@ -44,7 +42,7 @@ jobs:
           - 2.0.3
           - 2.0.4
           - 2.0.5
-          - latest
+          #- latest
 
         include:
           # multidimensional matrix doesn't apply to these profiles, so they are implicitely listed
@@ -91,7 +89,8 @@ jobs:
           arduino-board-fqbn: ${{matrix.platform}}:${{matrix.archi}}:${{matrix.board}}
           arduino-platform: ${{matrix.platform}}:${{matrix.archi}}@${{matrix.platform-version}}
           platform-url: ${{ matrix.platform-url }}
-          required-libraries: ${{ matrix.required-libraries }}
+          required-libraries: ArduinoJson
+          #required-libraries: ${{ matrix.required-libraries }}
           extra-arduino-cli-args: ${{ matrix.cli-args }}
           #build-properties: ${{ toJson(matrix.build-properties) }}
           sketch-names: ${{ env.SKETCH_NAME }}
