@@ -31,7 +31,7 @@ jobs:
           - esp32
           - esp32s2
           - esp32s3
-          - esp33c3
+          - esp32c3
 
         platform-version:
           # ESP32 Core versions for 3D matrix
@@ -41,7 +41,8 @@ jobs:
           - 2.0.2
           - 2.0.3
           - 2.0.4
-          - latest
+          - 2.0.5
+          #- latest
 
         include:
           # 3D matrix doesn't apply to these profiles, so they are implicitely listed
