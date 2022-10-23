@@ -113,7 +113,7 @@ jobs:
           board_urls[Seeeduino]=${{env.Seeeduino_board_url}}
           board_urls[rp2040]=${{env.rp2040_board_url}}
 
-          cli_args[rp2040]="${{env.rp2040_cli_args}}"
+#          cli_args[rp2040]="${{env.rp2040_cli_args}}"
 
           board_name=${{matrix.platform}}
 
