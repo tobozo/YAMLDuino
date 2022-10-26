@@ -227,7 +227,7 @@ void test_Yaml_Stream_Loader()
     String yaml_str = String( yaml_sample_str );
     StringStream yaml_stream( yaml_str );
     DynamicJsonDocument json_doc(2048);
-    JsonObject json_obj = json_doc.as<JsonObject>();
+    JsonObject json_obj = json_doc.to<JsonObject>();
     auto err = deserializeYml( json_obj, yaml_stream ); // deserialize yaml stream to JsonObject
     if( err ) {
       YAML_LOG_n("Unable to deserialize demo YAML to JsonObject: %s", err.c_str() );
@@ -244,7 +244,7 @@ void test_Yaml_Stream_Loader()
   {
     YAML_LOG_n( "[TEST #%d] YAML string to JsonObject -> deserializeYml(json_obj, yaml_sample_str):", test_number++ );
     DynamicJsonDocument json_doc(2048);
-    JsonObject json_obj = json_doc.as<JsonObject>();
+    JsonObject json_obj = json_doc.to<JsonObject>();
     auto err = deserializeYml( json_obj, yaml_sample_str ); // deserialize yaml string to JsonObject
     if( err ) {
       YAML_LOG_n("Unable to deserialize demo YAML to JsonObject: %s", err.c_str() );
@@ -456,12 +456,16 @@ void setup()
     #pragma message "Enabling ArduinoJson tests"
     Serial.println("\n");
     YAML_LOG_n("### YAML=>JSON and JSON=>YAML using ArduinoJson\n");
-    test_deserializeYml_JsonObject_YamlString();
+    #if !defined ARDUINO_ARCH_AVR
+      test_deserializeYml_JsonDocument_YamlStream();
+      test_deserializeYml_JsonDocument_YamlString();
+      test_deserializeYml_JsonObject_YamlString();
+      test_serializeYml_JsonObject_YamlString();
+    #endif
     test_deserializeYml_JsonObject_YamlStream();
-    test_deserializeYml_JsonDocument_YamlStream();
-    test_deserializeYml_JsonDocument_YamlString();
     test_serializeYml_JsonObject_YamlStream();
-    test_serializeYml_JsonObject_YamlString();
+
+
     YAML_LOG_n("### ArduinoJson tests complete\n");
   #endif
 

@@ -82,6 +82,9 @@
   }
   #define HEAP_AVAILABLE() getFreeRam()
 #else
+  #include <stdarg.h>
+  #include <Arduino.h>
+  #define LOG_PRINTF Serial.printf
   static int getFreeRam()
   {
     // implement your own
@@ -95,7 +98,7 @@
   #define YAML_PATHNAME _pathToFileName
   static const char * _pathToFileName(const char * path)
   {
-    size_t i = 0, pos = 0;
+    int i = 0, pos = 0;
     char * p = (char *)path;
     while(*p){
       i++;
@@ -106,6 +109,8 @@
     }
     return path+pos;
   }
+  #include <stdarg.h>
+  #include <stdio.h>
 #endif
 
 #if !defined LOG_PRINTF
