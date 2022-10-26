@@ -123,19 +123,19 @@ public:
   void setOutputStream( Stream* stream ) { _yaml_stream = stream; }
 
   // yaml/json loaders (populates this.document)
-  void load( const char* yaml_or_json_str );
-  void load( Stream &yaml_or_json_stream );
+  bool load( const char* yaml_or_json_str );
+  bool load( Stream &yaml_or_json_stream );
 
   // the swiss-army knife functions:
   // parse any of yaml/json input, and output as yaml, json ugly or json pretty
-  void parse( OutputFormat_t format=OUTPUT_YAML );
-  void parse( const char* yaml_or_json_str, OutputFormat_t format=OUTPUT_YAML );
-  void parse( Stream &yaml_or_json_stream, OutputFormat_t format=OUTPUT_YAML );
+  bool parse( OutputFormat_t format=OUTPUT_YAML );
+  bool parse( const char* yaml_or_json_str, OutputFormat_t format=OUTPUT_YAML );
+  bool parse( Stream &yaml_or_json_stream, OutputFormat_t format=OUTPUT_YAML );
 
-  // explicit JSON exporters
-  template<typename T>
-  void toJson( T &yaml, bool pretty = true ) { load( yaml ); toJson( pretty ); }
-  void toJson( bool pretty = true ) { parse( pretty ? OUTPUT_JSON_PRETTY : OUTPUT_JSON ); }
+  //   // explicit JSON exporters
+  //   template<typename T>
+  //   void toJson( T &yaml, bool pretty = true ) { load( yaml ); toJson( pretty ); }
+  //   void toJson( bool pretty = true ) { parse( pretty ? OUTPUT_JSON_PRETTY : OUTPUT_JSON ); }
 
   // various getters
   yaml_document_t* getDocument() { return &document; }
@@ -154,7 +154,7 @@ private:
   String _yaml_string;
   Stream *_yaml_stream = nullptr;
   StringStream *_yaml_string_stream_ptr = nullptr;
-  void _loadDocument();
+  bool _loadDocument();
   yaml_document_t document;
   yaml_parser_t   parser;
   OutputFormat_t  output_format;
@@ -180,7 +180,7 @@ size_t serializeYml( Stream &json_src_stream, Stream &yml_dest_stream, OutputFor
   // default name for the topmost temporary JsonObject
   #define ROOT_NODE "_root_"
   // deconstructors
-  void deserializeYml_JsonObject( yaml_document_t* document, yaml_node_t* yamlNode, JsonObject &jsonNode, JNestingType_t nt=YAMLParser::NONE, const char *nodename=ROOT_NODE, int depth=0 );
+  DeserializationError deserializeYml_JsonObject( yaml_document_t*, yaml_node_t* , JsonObject&, JNestingType_t nt=YAMLParser::NONE, const char *nodename="", int depth=0 );
   size_t serializeYml_JsonVariant( JsonVariant root, Stream &out, int depth_level, JNestingType_t nt );
 
   class YAMLToArduinoJson : public YAMLParser
@@ -204,16 +204,19 @@ size_t serializeYml( Stream &json_src_stream, Stream &yml_dest_stream, OutputFor
       }
       deserializeYml_JsonObject(getDocument(), node, _root);
     }
+
     template<typename T>
-    JsonObject& toJson( T &yaml )
+    DeserializationError toJsonObject( T &src, JsonObject& output )
     {
-      load( yaml );
-      if( bytesWritten() > 0 ) {
-        setJsonDocument( bytesWritten()*2 );
-        toJson();
+      if( !load( src ) ) return DeserializationError::NoMemory;
+      yaml_node_t * node;
+      if (node = yaml_document_get_root_node(getDocument()), !node) {
+        YAML_LOG_e("No document defined.");
+        return DeserializationError::NoMemory;
       }
-      return _root;
+      return deserializeYml_JsonObject(getDocument(), node, output);
     }
+
   private:
     DynamicJsonDocument *_doc = nullptr;
     JsonObject _root;
@@ -230,27 +233,41 @@ size_t serializeYml( Stream &json_src_stream, Stream &yml_dest_stream, OutputFor
   // Deserialize YAML stream to ArduinoJSON document
   DeserializationError deserializeYml( JsonDocument &dest_doc, const char *src);
 
+
+  // [templated] Deserialize YAML string to ArduinoJSON Document
+  DeserializationError deserializeYml( JsonObject &dest_doc, const char* src_yaml_str );
+  // [templated] Deserialize YAML stream to ArduinoJSON Document
+  DeserializationError deserializeYml( JsonObject &dest_doc, Stream &src_stream );
+
+
   // [templated] Deserialize YAML string to ArduinoJSON object
   // DeserializationError deserializeYml( JsonObject &dest_obj, const char* src_yaml_str );
   // [templated] Deserialize YAML stream to ArduinoJSON object
   // DeserializationError deserializeYml( JsonObject &dest_obj, Stream &src_stream );
-  template<typename T>
-  DeserializationError deserializeYml( JsonObject &dest_obj, T &src)
-  {
-    //static_assert(std::is_same<Stream, T>::value || std::is_same<StringStream, T>::value || std::is_same<const char*, T>::value, "src must be const char* or Stream*");
-    YAMLToArduinoJson *parser = new YAMLToArduinoJson();
-    JsonObject _dest_obj = parser->toJson( src ); // decode yaml stream/string
-    dest_obj = _dest_obj[ROOT_NODE];
-    size_t capacity = parser->bytesWritten()*2;
-    delete parser;
-    if( capacity == 0 ) {
-      return DeserializationError::InvalidInput;
-    }
-    if( dest_obj.isNull() ) {
-      return DeserializationError::NoMemory;
-    }
-    return DeserializationError::Ok;
-  }
+//   template<typename T>
+//   DeserializationError deserializeYml( JsonObject &dest_obj, T &src)
+//   {
+//     YAMLToArduinoJson *parser = new YAMLToArduinoJson();
+//     //JsonObject dest_obj = dest_doc.to<JsonObject>();
+//     DeserializationError ret = parser->toJsonObject( src, dest_obj );
+//     delete parser;
+//     return ret;
+// /*
+//
+//     //static_assert(std::is_same<Stream, T>::value || std::is_same<StringStream, T>::value || std::is_same<const char*, T>::value, "src must be const char* or Stream*");
+//     YAMLToArduinoJson *parser = new YAMLToArduinoJson();
+//     JsonObject _dest_obj = parser->toJson( src ); // decode yaml stream/string
+//     dest_obj = _dest_obj[ROOT_NODE];
+//     size_t capacity = parser->bytesWritten()*2;
+//     delete parser;
+//     if( capacity == 0 ) {
+//       return DeserializationError::InvalidInput;
+//     }
+//     if( dest_obj.isNull() ) {
+//       return DeserializationError::NoMemory;
+//     }
+//     return DeserializationError::Ok;*/
+//   }
 
 
 #endif // HAS_ARDUINOJSON
@@ -283,7 +300,7 @@ size_t serializeYml( Stream &json_src_stream, Stream &yml_dest_stream, OutputFor
       if (node = yaml_document_get_root_node(document), !node) { YAML_LOG_w("No document defined."); return NULL; }
       return deserializeYml_cJSONObject(document, node);
     };
-    cJSON *toJson( const char* yaml_str ) { load( yaml_str );    return toJson( getDocument() ); };
+    cJSON *toJson( const char* yaml_str ) { load( yaml_str );    return toJson( getDocument() ); }
     cJSON* toJson( Stream &yaml_stream )  { load( yaml_stream ); return toJson( getDocument() ); }
   };
 

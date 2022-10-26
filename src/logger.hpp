@@ -82,6 +82,9 @@
   }
   #define HEAP_AVAILABLE() getFreeRam()
 #else
+  #include <stdarg.h>
+  #include <Arduino.h>
+  #define LOG_PRINTF Serial.printf
   static int getFreeRam()
   {
     // implement your own
