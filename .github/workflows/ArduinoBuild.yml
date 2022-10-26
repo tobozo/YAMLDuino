@@ -1,0 +1,159 @@
+name: ArduinoBuild
+
+env:
+  SKETCH_NAME: test.ino
+
+on:
+  push: # see: https://help.github.com/en/actions/reference/events-that-trigger-workflows#pull-request-event-pull_request
+    paths:
+    - '**.ino'
+    - '**.cpp'
+    - '**.hpp'
+    - '**.h'
+    - '**.c'
+    - '**ArduinoBuild.yml'
+  pull_request:
+
+jobs:
+
+  set_env:
+    name: "Set matrix env vars"
+    runs-on: ubuntu-latest
+    env:
+      esp32_board_url: https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_dev_index.json
+      esp8266_board_url: https://arduino.esp8266.com/stable/package_esp8266com_index.json
+      Seeeduino_board_url: https://files.seeedstudio.com/arduino/package_seeeduino_boards_index.json
+      rp2040_board_url: https://github.com/earlephilhower/arduino-pico/releases/download/global/package_rp2040_index.json
+      rp2040_cli_args: "--build-property compiler.cpp.extra_flags=-DSKIP_I2C_TEST"
+      d1_mini_fbqn_extra: ":eesz=4M3M,xtal=80"
+
+    outputs:
+      env: ${{steps.set-env.outputs.env}}
+    steps:
+    # export at output variables, flatten as JSON
+    - id: set-env
+      run: |
+        content='${{ toJson(env) }}'    # convert env vars to json
+        content="${content//'%'/'%25'}" # escape percent entities
+        content="${content//$'\n'/''}"  # remove lf
+        content="${content//$'\r'/''}"  # remove cr
+        echo "env=${content}" >> $GITHUB_OUTPUT
+
+  build:
+    name: ${{matrix.board}}@${{matrix.platform-version}}
+    runs-on: ubuntu-latest
+    needs: set_env
+    env: ${{fromJSON(needs.set_env.outputs.env)}}
+
+    strategy:
+      fail-fast: false
+      matrix:
+
+        board:
+          # ESP32 devices for multidimensional matrix
+          - esp32
+          - esp32s2
+          - esp32s3
+          - esp32c3
+
+        platform-version:
+          # ESP32 Core versions for multidimensional matrix
+          - 1.0.6
+          - 2.0.0
+          - 2.0.1
+          - 2.0.2
+          - 2.0.3
+          - 2.0.4
+          - latest
+
+        include:
+          # multidimensional matrix doesn't apply to these profiles, so they are explicitely populated
+
+          - { board: d1_mini,            platform: esp8266,   arch: esp8266, platform-version: 3.0.1, ... }
+          - { board: d1_mini,            platform: esp8266,   arch: esp8266, platform-version: latest, ... }
+
+          - { board: seeed_wio_terminal, platform: Seeeduino, arch: samd,    platform-version: 1.8.2, ... }
+          - { board: seeed_wio_terminal, platform: Seeeduino, arch: samd,    platform-version: latest, ... }
+
+          - { board: rpipico,            platform: rp2040,    arch: rp2040,  platform-version: 2.3.3, ... }
+          - { board: rpipico,            platform: rp2040,    arch: rp2040,  platform-version: latest, ... }
+
+          # multidimensional matrix applies to these:
+          - { board: esp32,   platform: esp32, arch: esp32, ... }
+          - { board: esp32s2, platform: esp32, arch: esp32, ... }
+          - { board: esp32s3, platform: esp32, arch: esp32, ... }
+          - { board: esp32c3, platform: esp32, arch: esp32, ... }
+
+        exclude:
+          # multidimensional matrix excludes (no support or unstable):
+
+          - { board: esp32s2, platform-version: 1.0.6 }
+          - { board: esp32s2, platform-version: 2.0.0 }
+
+          - { board: esp32s3, platform-version: 1.0.6 }
+          - { board: esp32s3, platform-version: 2.0.0 }
+          - { board: esp32s3, platform-version: 2.0.1 }
+          - { board: esp32s3, platform-version: 2.0.2 }
+          - { board: esp32s3, platform-version: 2.0.4 }
+
+          - { board: esp32c3, platform-version: 1.0.6 }
+          - { board: esp32c3, platform-version: 2.0.0 }
+
+
+
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Prepare variables for arduino-test-compile
+        run: |
+          # prepare some associative arrays to receive matrix-specific env vars
+          declare -A board_urls
+          declare -A cli_args
+          declare -A fbqn_extras
+
+          # assign package URLs (per platform)
+          board_urls[esp32]=${{env.esp32_board_url}}
+          board_urls[esp8266]=${{env.esp8266_board_url}}
+          board_urls[Seeeduino]=${{env.Seeeduino_board_url}}
+          board_urls[rp2040]=${{env.rp2040_board_url}}
+
+          # assign optional cli args (per platform)
+          cli_args[rp2040]="${{env.rp2040_cli_args}}"
+
+          # assign optional extra FQBN info (per board)
+          fbqn_extras[d1_mini]="${{env.d1_mini_fbqn_extra}}"
+
+          # collect the index names that will be used to populate the associative array
+          board_name=${{matrix.board}}
+          platform_name=${{matrix.platform}}
+
+          # populate values for the next step
+          arduino_platform_url=${board_urls[$platform_name]}
+          arduino_cli_args=${cli_args[$platform_name]}
+          arduino_board_fqbn=${{matrix.platform}}:${{matrix.arch}}:${{matrix.board}}${fbqn_extras[$board_name]}
+          arduino_platform=${{matrix.platform}}:${{matrix.arch}}@${{matrix.platform-version}}
+
+          # export to env
+          echo "ARDUINO_PLATFORM=$arduino_platform" >> $GITHUB_ENV
+          echo "ARDUINO_PLATFORM_URL=$arduino_platform_url" >> $GITHUB_ENV
+          echo "ARDUINO_CLI_ARGS=$arduino_cli_args" >> $GITHUB_ENV
+          echo "ARDUINO_BOARD_FQBN=$arduino_board_fqbn" >> $GITHUB_ENV
+
+
+      - name: Compile example
+        uses: ArminJo/arduino-test-compile@master
+        with:
+          arduino-board-fqbn: ${{env.ARDUINO_BOARD_FQBN}}
+          arduino-platform: ${{env.ARDUINO_PLATFORM}}
+          platform-url: ${{env.ARDUINO_PLATFORM_URL}}
+          required-libraries: ArduinoJson
+          extra-arduino-cli-args: ${{env.ARDUINO_CLI_ARGS}}
+          #build-properties: ${{ toJson(matrix.build-properties) }}
+          sketch-names: ${{ env.SKETCH_NAME }}
+          #sketches-exclude: ${{ matrix.sketches-exclude }}
+
+
