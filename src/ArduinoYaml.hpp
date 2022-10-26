@@ -42,7 +42,7 @@ extern "C" {
 
 #if !defined YAML_DISABLE_ARDUINOJSON
 
-  #if defined ARDUINO_ARCH_SAMD || defined ARDUINO_ARCH_RP2040 || defined ESP8266
+  #if defined ARDUINO_ARCH_SAMD || defined ARDUINO_ARCH_RP2040 || defined ESP8266 || defined ARDUINO_ARCH_AVR
     // those platforms don't have built-in cJSON and __has_include() macro is limited to
     // the sketch folder, so assume ArduinoJson is in use
     #include <Arduino.h>
@@ -230,7 +230,7 @@ size_t serializeYml( Stream &json_src_stream, Stream &yml_dest_stream, OutputFor
   template<typename T>
   DeserializationError deserializeYml( JsonObject &dest_obj, T &src)
   {
-    static_assert(std::is_same<Stream, T>::value || std::is_same<StringStream, T>::value || std::is_same<const char*, T>::value, "src must be const char* or Stream*");
+    //static_assert(std::is_same<Stream, T>::value || std::is_same<StringStream, T>::value || std::is_same<const char*, T>::value, "src must be const char* or Stream*");
     YAMLToArduinoJson *parser = new YAMLToArduinoJson();
     JsonObject _dest_obj = parser->toJson( src ); // decode yaml stream/string
     dest_obj = _dest_obj[ROOT_NODE];
