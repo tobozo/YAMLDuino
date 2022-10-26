@@ -36,17 +36,23 @@ extern "C" {
   #include "libyaml/yaml.h" // https://github.com/yaml/libyaml
 }
 
-#if !defined YAML_DISABLE_CJSON // define this from sketch if cJSON isn't needed
-  #define HAS_CJSON // built-in (esp32) or bundled
+//#define YAML_DISABLE_ARDUINOJSON
+
+#if defined ARDUINO_ARCH_SAMD || defined ARDUINO_ARCH_RP2040 || defined ESP8266 || defined ARDUINO_ARCH_AVR
+  #include <Arduino.h>
+  #include <assert.h>
 #endif
+
+#if !defined YAML_DISABLE_CJSON && !defined ARDUINO_ARCH_AVR // define this from sketch if cJSON isn't needed
+  #define HAS_CJSON // built-in (esp32) or bundled, except for AVR
+#endif
+
 
 #if !defined YAML_DISABLE_ARDUINOJSON
 
   #if defined ARDUINO_ARCH_SAMD || defined ARDUINO_ARCH_RP2040 || defined ESP8266 || defined ARDUINO_ARCH_AVR
     // those platforms don't have built-in cJSON and __has_include() macro is limited to
     // the sketch folder, so assume ArduinoJson is in use
-    #include <Arduino.h>
-    #include <assert.h>
     #include <ArduinoJson.h>
     #define HAS_ARDUINOJSON
   #endif
@@ -57,6 +63,7 @@ extern "C" {
   #endif
 
 #endif
+
 
 #define YAML_SCALAR_SPACE " " // YAML is indented with spaces (2 or more), not tabs
 #define JSON_SCALAR_TAB "\t"  // JSON is indented with one tab as a default, this can be changed later

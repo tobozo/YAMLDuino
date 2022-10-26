@@ -456,12 +456,16 @@ void setup()
     #pragma message "Enabling ArduinoJson tests"
     Serial.println("\n");
     YAML_LOG_n("### YAML=>JSON and JSON=>YAML using ArduinoJson\n");
-    test_deserializeYml_JsonObject_YamlString();
+    #if !defined ARDUINO_ARCH_AVR
+      test_deserializeYml_JsonDocument_YamlStream();
+      test_deserializeYml_JsonDocument_YamlString();
+      test_deserializeYml_JsonObject_YamlString();
+      test_serializeYml_JsonObject_YamlString();
+    #endif
     test_deserializeYml_JsonObject_YamlStream();
-    test_deserializeYml_JsonDocument_YamlStream();
-    test_deserializeYml_JsonDocument_YamlString();
     test_serializeYml_JsonObject_YamlStream();
-    test_serializeYml_JsonObject_YamlString();
+
+
     YAML_LOG_n("### ArduinoJson tests complete\n");
   #endif
 
