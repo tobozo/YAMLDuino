@@ -227,7 +227,7 @@ void test_Yaml_Stream_Loader()
     String yaml_str = String( yaml_sample_str );
     StringStream yaml_stream( yaml_str );
     DynamicJsonDocument json_doc(2048);
-    JsonObject json_obj = json_doc.as<JsonObject>();
+    JsonObject json_obj = json_doc.to<JsonObject>();
     auto err = deserializeYml( json_obj, yaml_stream ); // deserialize yaml stream to JsonObject
     if( err ) {
       YAML_LOG_n("Unable to deserialize demo YAML to JsonObject: %s", err.c_str() );
@@ -244,7 +244,7 @@ void test_Yaml_Stream_Loader()
   {
     YAML_LOG_n( "[TEST #%d] YAML string to JsonObject -> deserializeYml(json_obj, yaml_sample_str):", test_number++ );
     DynamicJsonDocument json_doc(2048);
-    JsonObject json_obj = json_doc.as<JsonObject>();
+    JsonObject json_obj = json_doc.to<JsonObject>();
     auto err = deserializeYml( json_obj, yaml_sample_str ); // deserialize yaml string to JsonObject
     if( err ) {
       YAML_LOG_n("Unable to deserialize demo YAML to JsonObject: %s", err.c_str() );
