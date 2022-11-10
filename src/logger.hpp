@@ -2,7 +2,7 @@
 /*
  *
  * ESP32-yaml
- * Project Page: https://github.com/tobozo/esp32-yaml
+ * Project Page: https://github.com/tobozo/YAMLDuino
  *
  * Copyright 2022 tobozo http://github.com/tobozo
  *

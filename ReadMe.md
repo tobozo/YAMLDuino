@@ -150,7 +150,7 @@ DeserializationError deserializeYml( JsonDocument &dest_doc, const char *src_yam
 
 ----------------------------
 
-## cJSON bindinds
+## cJSON bindings
 
 cJSON support is implicitely enabled on most platforms, and will use the bundled cJSON version unless ESP32 platform is detected.
 ESP32 will use the built-in cJSON version from esp-idf instead of the YAMLDuino bundled version.

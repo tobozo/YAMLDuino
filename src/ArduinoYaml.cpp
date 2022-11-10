@@ -1,7 +1,7 @@
 /*
  *
  * ESP32-yaml
- * Project Page: https://github.com/tobozo/esp32-yaml
+ * Project Page: https://github.com/tobozo/YAMLDuino
  *
  * Copyright 2022 tobozo http://github.com/tobozo
  *
@@ -461,7 +461,7 @@ size_t deserialize_YamlDocument( yaml_traverser_t *it )
 
 
 
-// pure libyaml JSON->YAML stream-to-stream seralization
+// pure libyaml JSON<->YAML stream-to-stream seralization/deserialization
 size_t serializeYml( Stream &stream_in, Stream &stream_out, OutputFormat_t output_format )
 {
   YAMLParser* parser = new YAMLParser();
