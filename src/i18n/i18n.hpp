@@ -30,7 +30,15 @@
 
 #pragma once
 
-#include <FS.h>
+
+#if defined WIO_TERMINAL
+  #include <Seeed_FS.h>
+#else
+  #include <FS.h>
+#endif
+
+
+
 #include <ArduinoJson.h>
 #include "../ArduinoYaml.hpp"
 
