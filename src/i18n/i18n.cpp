@@ -164,13 +164,13 @@ bool i18n_t::setLocale( const char* localeStr )
   memset( locale.country,  0, sizeof(locale.country) );
   memset( locale.variant,  0, sizeof(locale.variant) );
 
-  char delimiters[3] = {'-', '_'}; // guess delimiter
+  char delimiters[2] = {'-', '_'}; // guess delimiter
   char *found = NULL;
   size_t tokenlen = 0;
 
   for( int i=0;i<sizeof(delimiters);i++ ) {
     found = strchr( localeCopy, delimiters[i] );
-    if( found ) {
+    if( found != NULL ) {
       locale.delimiter[0] = delimiters[i];
       break;
     }
@@ -182,8 +182,10 @@ bool i18n_t::setLocale( const char* localeStr )
     goto _success;
   }
 
-  // a delimiter was found, assume it's at least language+country, and at most language+country+variant
   found = strtok( localeCopy, locale.delimiter );
+
+  // a delimiter was found, assume it's at least language+country, and at most language+country+variant
+  found = strtok( NULL, locale.delimiter );
   if( found == NULL ) goto _error; // this should not happen as the delimiter was found earlier
   tokenlen = strlen( found );
   if( tokenlen !=2 && tokenlen != 3 ) goto _error; // bad language value, should be 2 or three letters
@@ -206,7 +208,7 @@ bool i18n_t::setLocale( const char* localeStr )
     return loadLocale();
 
   _error:
-    printf("Error, malformed locale: %s", localeStr );
+    YAML_LOG_e("Error, malformed locale: %s", localeStr );
     free(localeCopy);
     return false;
 }
@@ -215,7 +217,7 @@ bool i18n_t::setLocale( const char* localeStr )
 bool i18n_t::loadLocale()
 {
   if( fs == nullptr ) {
-    log_n("No filesystem attached, use setFS() e.g. i18n.setFS( &LiffleFS );");
+    YAML_LOG_n("No filesystem attached, use setFS() e.g. i18n.setFS( &LiffleFS );");
     return false;
   }
   std::string localeStr = getLocale();
@@ -226,7 +228,7 @@ bool i18n_t::loadLocale()
   size_t localeSize = localeFile.size();
 
   if( l10n.doc != nullptr ) delete l10n.doc;
-  l10n.doc = new DynamicJsonDocument( localeSize );
+  l10n.doc = new DynamicJsonDocument( localeSize * 2 ); // TODO: better evaluation
   JsonVariantConst rootvar = *l10n.doc;
 
   auto err = deserializeYml( *l10n.doc, localeFile ); // deserialize yaml stream to JsonDocument
