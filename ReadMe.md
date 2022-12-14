@@ -252,6 +252,60 @@ YAML::setYAMLIndent( 3 );
 ----------------------------
 
 
+## I18N and L10N
+
+
+Sample example `/lang/en-GB.yml` stored in LittleFS:
+
+```yml
+en-GB:
+  hello: world
+  blah:
+    my_array:
+    - first
+    - second
+    - third
+
+```
+
+Load the module with `#include <i18n/i18n.hpp>`, assign a filesystem with `i18n.setFS()`
+and a locale with `i18n.setLocale()`, then use `i18n.gettext()` to access localized strings.
+
+
+```cpp
+
+#include <LittleFS.h>
+#include <ArduinoJson.h>
+#define YAML_DISABLE_CJSON // not needed here
+#include <YAMLDuino.h>
+#include <i18n/i18n.hpp>
+
+
+void setup()
+{
+  Serial.begin(115200);
+  LittleFS.begin();
+
+  i18n.setFS( &LittleFS );
+  i18n.setLocale("en-GB"); // loads "/lang/en-GB.yml" file from LittleFS
+
+  Serial.println( i18n.gettext("hello" ) ); // prints "world"
+  Serial.println( i18n.gettext("blah:my_array:2" ) ); // prints "third"
+}
+
+
+void loop()
+{
+
+  delay(1000);
+}
+```
+
+
+----------------------------
+
+
+
 ## Debug
 
 

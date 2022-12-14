@@ -28,6 +28,8 @@
  *
 \*/
 
+#if !defined WIO_TERMINAL
+
 #include "./i18n.hpp"
 
 #include <vector>
@@ -249,3 +251,5 @@ bool i18n_t::loadLocale()
 
   return true;
 }
+
+#endif // defined WIO_TERMINAL

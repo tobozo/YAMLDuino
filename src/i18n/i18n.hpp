@@ -31,12 +31,10 @@
 #pragma once
 
 
-#if defined WIO_TERMINAL
-  #include <Seeed_FS.h>
-#else
-  #include <FS.h>
-#endif
+#if !defined WIO_TERMINAL
 
+
+#include <FS.h>
 
 
 #include <ArduinoJson.h>
@@ -93,3 +91,5 @@ public:
 
 
 static i18n_t i18n;
+
+#endif // defined WIO_TERMINAL
