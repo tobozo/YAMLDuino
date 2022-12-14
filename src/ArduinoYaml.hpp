@@ -1,14 +1,14 @@
 #pragma once
-/*
+/*\
  *
- * ESP32-yaml
+ * YAMLDuino
  * Project Page: https://github.com/tobozo/YAMLDuino
  *
  * Copyright 2022 tobozo http://github.com/tobozo
  *
  * Permission is hereby granted, free of charge, to any person
  * obtaining a copy of this software and associated documentation
- * files ("ESP32-yaml"), to deal in the Software without
+ * files ("YAMLDuino"), to deal in the Software without
  * restriction, including without limitation the rights to use,
  * copy, modify, merge, publish, distribute, sublicense, and/or
  * sell copies of the Software, and to permit persons to whom the
@@ -27,7 +27,7 @@
  * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
  * OTHER DEALINGS IN THE SOFTWARE.
  *
- */
+\*/
 
 
 #include "logger.hpp"
@@ -172,6 +172,18 @@ size_t serializeYml( Stream &json_src_stream, Stream &yml_dest_stream, OutputFor
   // ArduinoJson friendly functions and derivated class
 
   #include <ArduinoJson.h>
+
+  // recursion helpers for json variant
+  // https://github.com/bblanchon/ArduinoJson/issues/1505#issuecomment-782825946
+  template <typename Key>
+  JsonVariantConst resolvePath(JsonVariantConst variant, Key key) {
+    return variant[key];
+  }
+
+  template <typename Key, typename... Tail>
+  JsonVariantConst resolvePath(JsonVariantConst variant, Key key, Tail... tail) {
+    return resolvePath(variant[key], tail...);
+  }
 
   // default name for the topmost temporary JsonObject
   #define ROOT_NODE "_root_"
