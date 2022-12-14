@@ -221,7 +221,7 @@ bool i18n_t::loadLocale()
   std::string localeStr = getLocale();
   std::string fileName = localesPath + localeStr + "." + fileExtension;
   if( ! fs->exists( fileName.c_str() ) ) return false; // this test is useless with SPIFFS
-  fs::File localeFile = fs->open( fileName.c_str() );
+  fs::File localeFile = fs->open( fileName.c_str(), "r" );
   if( ! localeFile ) return false;
   size_t localeSize = localeFile.size();
 

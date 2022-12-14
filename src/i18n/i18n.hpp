@@ -50,10 +50,10 @@ struct l10n_t
 // locale name holder
 struct i18n_locale_t
 {
-  char language[4] {"en"}; // ISO-639
-  char country[4] { 0 };   // ISO-3166
-  char variant[16] { 0 };  // ISO-3166
-  char delimiter[2] { "_" };
+  char language[4] {0}; // ISO-639
+  char country[4] {0};  // ISO-3166
+  char variant[16] {0}; // ISO-3166
+  char delimiter[2] {0};
   i18n_locale_t() = default;
 };
 
