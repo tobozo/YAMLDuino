@@ -150,7 +150,7 @@ DeserializationError deserializeYml( JsonDocument &dest_doc, const char *src_yam
 
 ----------------------------
 
-## cJSON bindinds
+## cJSON bindings
 
 cJSON support is implicitely enabled on most platforms, and will use the bundled cJSON version unless ESP32 platform is detected.
 ESP32 will use the built-in cJSON version from esp-idf instead of the YAMLDuino bundled version.
@@ -250,6 +250,60 @@ YAML::setYAMLIndent( 3 );
 
 
 ----------------------------
+
+
+## I18N and L10N
+
+Note: Support is disabled with WIO Terminal (needs a proper fs::FS implementation).
+
+* Load the module with `#include <i18n/i18n.hpp>`.
+* Assign a filesystem with `i18n.setFS()`.
+* Load a locale with `i18n.setLocale()`.
+* Use `i18n.gettext()` to access localized strings.
+
+
+```cpp
+
+#include <LittleFS.h>
+#include <ArduinoJson.h>
+#define YAML_DISABLE_CJSON // not needed here
+#include <YAMLDuino.h>
+#include <i18n/i18n.hpp>
+
+// Sample example `/lang/en-GB.yml` stored in LittleFS:
+//
+// en-GB:
+//   hello: world
+//   blah:
+//     my_array:
+//     - first
+//     - second
+//     - third
+
+
+void setup()
+{
+  Serial.begin(115200);
+  LittleFS.begin();
+
+  i18n.setFS( &LittleFS ); // assign LittleFS
+  i18n.setLocale("en-GB"); // will load "/lang/en-GB.yml" language file
+
+  Serial.println( i18n.gettext("hello" ) ); // prints "world"
+  Serial.println( i18n.gettext("blah:my_array:2" ) ); // prints "third"
+}
+
+
+void loop()
+{
+
+  delay(1000);
+}
+```
+
+
+----------------------------
+
 
 
 ## Debug

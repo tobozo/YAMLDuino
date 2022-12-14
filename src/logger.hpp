@@ -1,14 +1,14 @@
 #pragma once
-/*
+/*\
  *
- * ESP32-yaml
- * Project Page: https://github.com/tobozo/esp32-yaml
+ * YAMLDuino
+ * Project Page: https://github.com/tobozo/YAMLDuino
  *
  * Copyright 2022 tobozo http://github.com/tobozo
  *
  * Permission is hereby granted, free of charge, to any person
  * obtaining a copy of this software and associated documentation
- * files ("ESP32-yaml"), to deal in the Software without
+ * files ("YAMLDuino"), to deal in the Software without
  * restriction, including without limitation the rights to use,
  * copy, modify, merge, publish, distribute, sublicense, and/or
  * sell copies of the Software, and to permit persons to whom the
@@ -27,7 +27,7 @@
  * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
  * OTHER DEALINGS IN THE SOFTWARE.
  *
- */
+\*/
 
 // Emit logs in arduino style at software level rather than firmware level
 
@@ -59,6 +59,18 @@
   #include <Arduino.h>
   #define LOG_PRINTF Serial.printf
   #define HEAP_AVAILABLE() rp2040.getFreeHeap()
+#elif defined CORE_TEENSY
+  #include <stdarg.h>
+  #include <Arduino.h>
+  #define LOG_PRINTF Serial.printf
+  extern unsigned long _heap_start;
+  extern unsigned long _heap_end;
+  extern char *__brkval;
+  static int getFreeRam()
+  {
+    return (char *)&_heap_end - __brkval;
+  }
+  #define HEAP_AVAILABLE() getFreeRam()
 #elif defined ARDUINO_ARCH_SAMD
   #include <stdarg.h>
   #include <Arduino.h>
@@ -74,7 +86,7 @@
     char top;
     #ifdef __arm__
       return &top - reinterpret_cast<char*>(sbrk(0));
-    #elif defined(CORE_TEENSY) || (ARDUINO > 103 && ARDUINO != 151)
+    #elif (ARDUINO > 103 && ARDUINO != 151)
       return &top - __brkval;
     #else  // __arm__
       return __brkval ? &top - __brkval : &top - __malloc_heap_start;

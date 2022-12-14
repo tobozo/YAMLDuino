@@ -122,10 +122,10 @@ void test_Json2Yaml()
 {
   YAML_LOG_n( "[TEST #%d] Json2Yaml serializeYml(stream_in, stream_out, YAMLParser::OUTPUT_YAML using pure libyaml:", test_number++ );
 
-  String yaml_str = String( yaml_sample_str );
-  StringStream yaml_stream( yaml_str );
+  String json_str = String( json_sample_str );
+  StringStream json_stream( json_str );
 
-  serializeYml( yaml_stream, Serial, YAMLParser::OUTPUT_YAML );
+  serializeYml( json_stream, Serial, YAMLParser::OUTPUT_YAML );
 
   YAML_LOG_n("Tests complete");
 }

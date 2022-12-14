@@ -1,14 +1,14 @@
 #pragma once
-/*
+/*\
  *
- * ESP32-yaml
- * Project Page: https://github.com/tobozo/esp32-yaml
+ * YAMLDuino
+ * Project Page: https://github.com/tobozo/YAMLDuino
  *
  * Copyright 2022 tobozo http://github.com/tobozo
  *
  * Permission is hereby granted, free of charge, to any person
  * obtaining a copy of this software and associated documentation
- * files ("ESP32-yaml"), to deal in the Software without
+ * files ("YAMLDuino"), to deal in the Software without
  * restriction, including without limitation the rights to use,
  * copy, modify, merge, publish, distribute, sublicense, and/or
  * sell copies of the Software, and to permit persons to whom the
@@ -27,7 +27,7 @@
  * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
  * OTHER DEALINGS IN THE SOFTWARE.
  *
- */
+\*/
 
 
 #include "logger.hpp"
@@ -38,7 +38,7 @@ extern "C" {
 
 //#define YAML_DISABLE_ARDUINOJSON
 
-#if defined ARDUINO_ARCH_SAMD || defined ARDUINO_ARCH_RP2040 || defined ESP8266 || defined ARDUINO_ARCH_AVR
+#if defined ARDUINO_ARCH_SAMD || defined ARDUINO_ARCH_RP2040 || defined ESP8266 || defined ARDUINO_ARCH_AVR || defined CORE_TEENSY
   #include <Arduino.h>
   #include <assert.h>
 #endif
@@ -50,7 +50,7 @@ extern "C" {
 
 #if !defined YAML_DISABLE_ARDUINOJSON
 
-  #if defined ARDUINO_ARCH_SAMD || defined ARDUINO_ARCH_RP2040 || defined ESP8266 || defined ARDUINO_ARCH_AVR
+  #if defined ARDUINO_ARCH_SAMD || defined ARDUINO_ARCH_RP2040 || defined ESP8266 || defined ARDUINO_ARCH_AVR || defined CORE_TEENSY
     // those platforms don't have built-in cJSON and __has_include() macro is limited to
     // the sketch folder, so assume ArduinoJson is in use
     #include <ArduinoJson.h>
@@ -104,6 +104,9 @@ public:
 
   // generic node type shared between json and yaml iterators
   enum JNestingType_t { NONE, SEQ_KEY, MAP_KEY };
+  // available output formats
+  enum OutputFormat_t { OUTPUT_YAML, OUTPUT_JSON, OUTPUT_JSON_PRETTY };
+
   // wrapper struct passed when recursively parsing yaml_document
   struct yaml_traverser_t
   {
@@ -113,10 +116,8 @@ public:
     JNestingType_t type;
     int depth;
   };
-  // output emitter signature, points to serialize or deserialize (defaults to YAML output)
+  // serializer function pointer
   typedef size_t (*yaml_doc_processor_cb)( yaml_traverser_t *it );
-  // available output formats
-  enum OutputFormat_t { OUTPUT_YAML, OUTPUT_JSON, OUTPUT_JSON_PRETTY };
 
   // output controls
   void setOutputFormat( OutputFormat_t format );
@@ -131,11 +132,6 @@ public:
   bool parse( OutputFormat_t format=OUTPUT_YAML );
   bool parse( const char* yaml_or_json_str, OutputFormat_t format=OUTPUT_YAML );
   bool parse( Stream &yaml_or_json_stream, OutputFormat_t format=OUTPUT_YAML );
-
-  //   // explicit JSON exporters
-  //   template<typename T>
-  //   void toJson( T &yaml, bool pretty = true ) { load( yaml ); toJson( pretty ); }
-  //   void toJson( bool pretty = true ) { parse( pretty ? OUTPUT_JSON_PRETTY : OUTPUT_JSON ); }
 
   // various getters
   yaml_document_t* getDocument() { return &document; }
@@ -166,7 +162,7 @@ typedef YAMLParser::yaml_traverser_t yaml_traverser_t;
 typedef YAMLParser::OutputFormat_t OutputFormat_t;
 
 
-// Pure libyaml JSON->YAML stream-to-stream seralization
+// Pure libyaml JSON <-> YAML stream-to-stream seralization
 size_t serializeYml( Stream &json_src_stream, Stream &yml_dest_stream, OutputFormat_t format=YAMLParser::OUTPUT_YAML );
 
 
@@ -176,6 +172,18 @@ size_t serializeYml( Stream &json_src_stream, Stream &yml_dest_stream, OutputFor
   // ArduinoJson friendly functions and derivated class
 
   #include <ArduinoJson.h>
+
+  // recursion helpers for json variant
+  // https://github.com/bblanchon/ArduinoJson/issues/1505#issuecomment-782825946
+  template <typename Key>
+  JsonVariantConst resolvePath(JsonVariantConst variant, Key key) {
+    return variant[key];
+  }
+
+  template <typename Key, typename... Tail>
+  JsonVariantConst resolvePath(JsonVariantConst variant, Key key, Tail... tail) {
+    return resolvePath(variant[key], tail...);
+  }
 
   // default name for the topmost temporary JsonObject
   #define ROOT_NODE "_root_"
@@ -190,20 +198,6 @@ size_t serializeYml( Stream &json_src_stream, Stream &yml_dest_stream, OutputFor
     ~YAMLToArduinoJson() { if( _doc) delete _doc; }
     void setJsonDocument( const size_t capacity ) { _doc = new DynamicJsonDocument(capacity); _root = _doc->to<JsonObject>(); }
     JsonObject& getJsonObject() { return _root; }
-    void toJson() {
-      yaml_node_t * node;
-      if( !_doc || _root.isNull() ) {
-        YAML_LOG_e("No destination JsonObject defined.");
-        return;
-      }
-      // YAML_LOG_i("JsonDocument capacity: %d (%d/%d yaml r/w)", _doc->capacity(), bytesRead(), bytesWritten() );
-      // dafuq is that if( a=b, !a ) notation ??
-      if (node = yaml_document_get_root_node(getDocument()), !node) {
-        YAML_LOG_e("No document defined.");
-        return;
-      }
-      deserializeYml_JsonObject(getDocument(), node, _root);
-    }
 
     template<typename T>
     DeserializationError toJsonObject( T &src, JsonObject& output )
@@ -234,41 +228,10 @@ size_t serializeYml( Stream &json_src_stream, Stream &yml_dest_stream, OutputFor
   DeserializationError deserializeYml( JsonDocument &dest_doc, const char *src);
 
 
-  // [templated] Deserialize YAML string to ArduinoJSON Document
+  // Deserialize YAML string to ArduinoJSON Document
   DeserializationError deserializeYml( JsonObject &dest_doc, const char* src_yaml_str );
-  // [templated] Deserialize YAML stream to ArduinoJSON Document
+  // Deserialize YAML stream to ArduinoJSON Document
   DeserializationError deserializeYml( JsonObject &dest_doc, Stream &src_stream );
-
-
-  // [templated] Deserialize YAML string to ArduinoJSON object
-  // DeserializationError deserializeYml( JsonObject &dest_obj, const char* src_yaml_str );
-  // [templated] Deserialize YAML stream to ArduinoJSON object
-  // DeserializationError deserializeYml( JsonObject &dest_obj, Stream &src_stream );
-//   template<typename T>
-//   DeserializationError deserializeYml( JsonObject &dest_obj, T &src)
-//   {
-//     YAMLToArduinoJson *parser = new YAMLToArduinoJson();
-//     //JsonObject dest_obj = dest_doc.to<JsonObject>();
-//     DeserializationError ret = parser->toJsonObject( src, dest_obj );
-//     delete parser;
-//     return ret;
-// /*
-//
-//     //static_assert(std::is_same<Stream, T>::value || std::is_same<StringStream, T>::value || std::is_same<const char*, T>::value, "src must be const char* or Stream*");
-//     YAMLToArduinoJson *parser = new YAMLToArduinoJson();
-//     JsonObject _dest_obj = parser->toJson( src ); // decode yaml stream/string
-//     dest_obj = _dest_obj[ROOT_NODE];
-//     size_t capacity = parser->bytesWritten()*2;
-//     delete parser;
-//     if( capacity == 0 ) {
-//       return DeserializationError::InvalidInput;
-//     }
-//     if( dest_obj.isNull() ) {
-//       return DeserializationError::NoMemory;
-//     }
-//     return DeserializationError::Ok;*/
-//   }
-
 
 #endif // HAS_ARDUINOJSON
 
