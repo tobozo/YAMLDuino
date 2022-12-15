@@ -32,64 +32,74 @@
 
 
 #if !defined WIO_TERMINAL
+  #define I18N_SUPPORT
+#endif
 
+#include "../ArduinoYaml.hpp"
+
+#if defined I18N_SUPPORT && defined HAS_ARDUINOJSON
 
 #include <FS.h>
 
-
-#include <ArduinoJson.h>
-#include "../ArduinoYaml.hpp"
-
-#if !defined HAS_ARDUINOJSON
-  #error "i18n feature requires ArduinoJson"
-#endif
-
-// localized strings holder
+// Localization set, serialized as ArduinoJSON document
 struct l10n_t
 {
-  DynamicJsonDocument *doc = nullptr;
-  JsonVariantConst variant = NULL;
-  const char* gettext(const char* l10npath, char delim=':' );
+  DynamicJsonDocument *docptr {nullptr};
+  JsonVariantConst docref {NULL};
+  const char* gettext(const char* l10npath, char delimiter );
 };
 
 
-// locale name holder
+// Deconstructed locale
 struct i18n_locale_t
 {
-  char language[4] {0}; // ISO-639
-  char country[4] {0};  // ISO-3166
-  char variant[16] {0}; // ISO-3166
-  char delimiter[2] {0};
-  i18n_locale_t() = default;
+  char language[5];  // ISO-639 language code
+  char country[5];   // ISO-3166 country code
+  char variant[5];   // ISO-3166 variant code
+  char delimiter[2]; // lang-country-variant delimiter, either stroke or underscore
 };
 
 
-// setlocale and gettext
+// I18N setlocale() and gettext()
 struct i18n_t
 {
-private:
-  fs::FS *fs { nullptr };
-  i18n_locale_t locale;
-  l10n_t l10n;
-  std::string localesPath = "/lang/"; // locales folder where the l10n files reside
-  std::string fileExtension = "yml";  // l10n file extension, .yml .yaml or .json, must be yaml-parsable!
-  bool loadLocale();
 
 public:
-  bool setLocale( i18n_locale_t l );
-  bool setLocale( const char* localeStr );
+  i18n_t() { };
+  i18n_t( fs::FS *_fs) { setFS( _fs); };
+  ~i18n_t() { clearLocale(); freel10n(); };
 
-  const char* gettext( const char* l10npath );
-  const char* gettext( String l10npath );
+  // Use filePath if filename differs from locale e.g. setLocale("en-UD", "/path/to/arbitrary_non_locale_filename_yml")
+  // 'localeStr' must be valid, it can be "xx_XX" or "/path/to/xx_XX.yml"
+  bool setLocale( const char* localeStr, const char* filePath=nullptr );
+  const char* gettext( const char* l10npath, char delimiter=':' );
+  void setFS( fs::FS *_fs ); // set filesystem
 
-  const std::string getLocale();
+private:
+  fs::FS *fs = nullptr;            // Filesystem
+  i18n_locale_t locale; // Deconstructed locale
+  l10n_t l10n;       // Localization set, serialized as JsonDocument
+  std::string path = "/lang/";     // Deconstructed path where the l10n files can be found, with trailing slash
+  std::string extension = "yml";   // Deconstructed file extension (yml, yaml, json)
+  constexpr static const char delimiters[2] = {'-', '_'}; // Supported locale delimiters
 
-  void setFS( fs::FS *_fs );            // set filesystem
-  void setPath( const char* path );     // set folder name
-  void setExtension( const char* ext ); // set extension (yml, yaml, json)
+  const std::string getLocale(); // reconstruct locale
+
+  bool presetLocale( const char* localeStr );
+  void clearLocale();
+  void freel10n();
+
+  bool loadLocale();
+  bool loadLocaleStream( Stream& stream, size_t size );
+
+  // Note: validation is not made on *values*. Only string length is checked for overflow protection
+  bool isValidISO( char* maybe_iso, size_t min, size_t max );
+  bool isValidLocale( char* maybe_locale );
+  bool isValidLang( char* maybe_iso3166 );
+  bool isValidVariant( char* maybe_iso3166 );
+  bool isValidCountry( char* maybe_iso639 );
+
 };
 
-
-static i18n_t i18n;
 
 #endif // defined WIO_TERMINAL

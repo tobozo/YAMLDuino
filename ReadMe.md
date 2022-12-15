@@ -123,9 +123,9 @@ See the [motivational post](https://github.com/bblanchon/ArduinoJson/issues/1808
 
 ArduinoJson support is implicitely enabled on most platforms except for ESP32 where dependencies can be detected.
 
+*****ESP32 plaforms must include ArduinoJson.h before ArduinoYaml.h or bindings will be disabled!******
 
 ```cpp
-// ESP32 plaforms must include ArduinoJson before ArduinoYaml or functions will be disabled
 #include <ArduinoJson.h>
 #include <ArduinoYaml.h>
 ```
@@ -252,23 +252,28 @@ YAML::setYAMLIndent( 3 );
 ----------------------------
 
 
-## I18N and L10N
+## I18N/L10N Module
 
-Note: Support is disabled with WIO Terminal (needs a proper fs::FS implementation).
+Note: Support is disabled with WIO Terminal (platform needs a proper `fs::FS` filesystem implementation).
 
-* Load the module with `#include <i18n/i18n.hpp>`.
-* Assign a filesystem with `i18n.setFS()`.
+#### Usage
+
+* Include ArduinoJson and a `fs::FS` filesystem first
+* Load the i18n module with `#include <i18n/i18n.hpp>`.
+* Create an i18n instance and assign the filesystem `i18n_t i18n( &LittleFS );`.
 * Load a locale with `i18n.setLocale()`.
 * Use `i18n.gettext()` to access localized strings.
 
 
 ```cpp
 
-#include <LittleFS.h>
-#include <ArduinoJson.h>
-#define YAML_DISABLE_CJSON // not needed here
-#include <YAMLDuino.h>
-#include <i18n/i18n.hpp>
+#include <LittleFS.h>      // Mandatory filestem (can be SPIFFS, SD, SD_MMC, LittleFS)
+#include <ArduinoJson.h>   // Mandatory dependency, used as accessor
+#define YAML_DISABLE_CJSON // cJSON isn't needed here, so disable it
+#include <YAMLDuino.h>     // Load the library
+#include <i18n/i18n.hpp>   // Load the i18n module
+
+i18n_t i18n( &LittleFS ); // Create an i18n instance attached to filesystem
 
 // Sample example `/lang/en-GB.yml` stored in LittleFS:
 //
@@ -286,8 +291,9 @@ void setup()
   Serial.begin(115200);
   LittleFS.begin();
 
-  i18n.setFS( &LittleFS ); // assign LittleFS
-  i18n.setLocale("en-GB"); // will load "/lang/en-GB.yml" language file
+  i18n.setLocale("en-GB"); // This will look for "en-GB.yml" language file in "/lang/" folder and set "en-GB" as locale
+  // i18n.setLocale("/lang/en-GB.yml"); // This will load "/lang/en-GB.yml" language file and set "en-GB" as locale
+  // i18n.setLocale("en-GB", "/non-locale/file.yml"); // This will set "en-GB" as locale and load arbitrary "/non-locale/file.yml" language file
 
   Serial.println( i18n.gettext("hello" ) ); // prints "world"
   Serial.println( i18n.gettext("blah:my_array:2" ) ); // prints "third"
