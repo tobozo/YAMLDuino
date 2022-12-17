@@ -16,13 +16,14 @@ This arduino library is based on [libyaml](https://github.com/yaml/libyaml).
 - RP2040
 - ESP8266
 - SAMD
+- TeensyDuino
 
 ### Features:
 
 - YAML➔JSON and JSON➔YAML conversion
 - ArduinoJson serializers/deserializers
 - cJSON serializers/deserializers
-
+- YAML Loader + gettext() i18n accessor
 
 ----------------------------
 
@@ -275,29 +276,30 @@ Note: Support is disabled with WIO Terminal (platform needs a proper `fs::FS` fi
 ```cpp
 
 #include <LittleFS.h>      // Mandatory filestem (can be SPIFFS, SD, SD_MMC, LittleFS)
-#include <ArduinoJson.h>   // Mandatory dependency, used as accessor
-#define YAML_DISABLE_CJSON // cJSON isn't needed here, so disable it
 #include <YAMLDuino.h>     // Load the library
-#include <i18n/i18n.hpp>   // Load the i18n module
+
 
 i18n_t i18n( &LittleFS ); // Create an i18n instance attached to filesystem
 
-// Sample example `/lang/en-GB.yml` stored in LittleFS:
-//
-// en-GB:
-//   hello: world
-//   blah:
-//     my_array:
-//     - first
-//     - second
-//     - third
+/*
+YAML Sample example `/lang/en-GB.yml` stored in LittleFS:
 
+en-GB:
+  hello: world
+  blah:
+    my_array:
+    - first
+    - second
+    - third
+
+*/
 
 void setup()
 {
   Serial.begin(115200);
   LittleFS.begin();
 
+  // i18n.setFS( &SD ); // change filesystem to SD
   i18n.setLocale("en-GB"); // This will look for "en-GB.yml" language file in "/lang/" folder and set "en-GB" as locale
   // i18n.setLocale("/lang/en-GB.yml"); // This will load "/lang/en-GB.yml" language file and set "en-GB" as locale
   // i18n.setLocale("en-GB", "/non-locale/file.yml"); // This will set "en-GB" as locale and load arbitrary "/non-locale/file.yml" language file
