@@ -111,19 +111,19 @@ const size_t json_str_size = strlen(json_sample_str);
 void test_Yaml2JsonPretty()
 {
   YAMLNode yamlnode = YAMLNode::loadString( yaml_sample_str );
-  serializeYml( yamlnode.getDocument(), Serial, OutputFormat_t::OUTPUT_JSON_PRETTY );
+  serializeYml( yamlnode.getDocument(), Serial, OUTPUT_JSON_PRETTY );
 }
 
 void test_Yaml2Json()
 {
   YAMLNode yamlnode = YAMLNode::loadString( yaml_sample_str );
-  serializeYml( yamlnode.getDocument(), Serial, OutputFormat_t::OUTPUT_JSON );
+  serializeYml( yamlnode.getDocument(), Serial, OUTPUT_JSON );
 }
 
 void test_Json2Yaml()
 {
   YAMLNode yamlnode = YAMLNode::loadString( json_sample_str );
-  serializeYml( yamlnode.getDocument(), Serial, OutputFormat_t::OUTPUT_YAML );
+  serializeYml( yamlnode.getDocument(), Serial, OUTPUT_YAML );
 }
 
 

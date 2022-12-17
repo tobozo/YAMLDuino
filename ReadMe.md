@@ -52,10 +52,18 @@ YAML is a superset of JSON, so native conversion from/to JSON is possible withou
 // JSON <=> YAML stream to stream conversion (both ways!).
 // Accepts valid JSON or YAML as the input.
 // Available values for output format:
-//   YAMLParser::OUTPUT_YAML
-//   YAMLParser::OUTPUT_JSON
-//   YAMLParser::OUTPUT_JSON_PRETTY
-size_t serializeYml( Stream &source, Stream &destination, OutputFormat_t format );
+//   OUTPUT_YAML
+//   OUTPUT_JSON
+//   OUTPUT_JSON_PRETTY
+// JSON/YAML document to YAML/JSON string
+size_t serializeYml( yaml_document_t* src_doc, String &dest_string, OutputFormat_t format=OUTPUT_YAML );
+// JSON/YAML object to YAML/JSON stream
+size_t serializeYml( yaml_document_t* src_doc, Stream &dest_stream, OutputFormat_t format=OUTPUT_YAML );
+
+// YAML stream to YAML document
+int deserializeYml( YAMLNode& dest_obj, const char* src_yaml_str );
+// YAML string to YAML document
+int deserializeYml( YAMLNode& dest_obj, Stream &src_stream );
 
 ```
 
@@ -63,9 +71,8 @@ size_t serializeYml( Stream &source, Stream &destination, OutputFormat_t format 
 **Convert YAML to JSON**
 ```cpp
 String yaml_str = "hello: world\nboolean: true\nfloat: 1.2345";
-StringStream yaml_stream( yaml_str );
-
-serializeYml( yaml_stream, Serial, YAMLParser::OUTPUT_JSON_PRETTY );
+YAMLNode yamlnode = YAMLNode::loadString( yaml_str );
+serializeYml( yamlnode.getDocument(), Serial, OUTPUT_JSON_PRETTY );
 
 ```
 
@@ -74,10 +81,8 @@ serializeYml( yaml_stream, Serial, YAMLParser::OUTPUT_JSON_PRETTY );
 **Convert JSON to YAML**
 ```cpp
 String json_str = "{\"hello\": \"world\", \"boolean\": true, \"float\":1.2345}";
-StringStream json_stream( json_str );
-
-serializeYml( json_stream, Serial, YAMLParser::OUTPUT_YAML );
-
+YAMLNode yamlnode = YAMLNode::loadString( yaml_str );
+serializeYml( yamlnode.getDocument(), Serial, OUTPUT_YAML );
 ```
 
 ----------------------------
@@ -172,6 +177,8 @@ size_t serializeYml( cJSON* src_obj, Stream &dest_stream );
 int deserializeYml( cJSON* dest_obj, const char* src_yaml_str );
 // YAML stream to cJSON object
 int deserializeYml( cJSON* dest_obj, Stream &src_stream );
+// YAML document to cJSON object
+int deserializeYml( cJSON** dest_obj, yaml_document_t* src_document );
 
 ```
 
@@ -235,7 +242,7 @@ Set custom JSON indentation and folding depth:
 
 ```cpp
 // this set two spaces per indentation level, unfolds up to 8 nesting levels
-YAMLParser::setJSONIndent("  ", 8 ); // lame fact: folds on objects, not on arrays
+YAML::setJSONIndent("  ", 8 ); // lame fact: folds on objects, not on arrays
 
 ```
 
@@ -333,7 +340,7 @@ Set library debug level:
 //   LogLevelInfo    : Errors+Warnings+Info
 //   LogLevelDebug   : Errors+Warnings+Info+Debug
 //   LogLevelVerbose : Errors+Warnings+Info+Debug+Verbose
-YAMLParser::setLogLevel( YAML::LogLevelDebug );
+YAML::setLogLevel( YAML::LogLevelDebug );
 ```
 
 ----------------------------
@@ -361,6 +368,7 @@ project. Thanks in advance!
   - [@DaveGamble](https://github.com/DaveGamble)
   - [@bblanchon](https://github.com/bblanchon)
   - [@vikman90](https://github.com/vikman90/yaml2json)
+  - [@Visse](https://github.com/Visse/libyaml-cpp)
 
 
 
@@ -370,3 +378,4 @@ project. Thanks in advance!
   - ArduinoStreamUtils : https://github.com/bblanchon/ArduinoStreamUtils
   - cJSON : https://github.com/DaveGamble/cJSON
   - libyaml : https://github.com/yaml/libyaml
+
