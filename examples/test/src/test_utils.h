@@ -30,7 +30,7 @@ const char* test_decorator_success = "  ✓✓✓✓✓✓✓✓✓✓✓✓✓�
 void test_fn( test_fn_t fn, const char *fn_name, const char* desc, const char* usage )
 {
   {
-    free_heap_begin = ESP.getFreeHeap();
+    free_heap_begin = HEAP_AVAILABLE();
     Serial.println();
     Serial.println(test_decorator_begin);
     Serial.printf( "\n  [TEST #%d]\n\t* Type: %s()\n\t* Desc: %s\n\t* Usage: %s\n\n", test_number, fn_name, desc, usage );
@@ -40,7 +40,7 @@ void test_fn( test_fn_t fn, const char *fn_name, const char* desc, const char* u
     fn();
   }
   {
-    free_heap_end = ESP.getFreeHeap();
+    free_heap_end = HEAP_AVAILABLE();
     int free_heap_diff = free_heap_begin;
     free_heap_diff -= free_heap_end;
     Serial.println("\n");

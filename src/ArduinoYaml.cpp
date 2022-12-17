@@ -429,6 +429,12 @@ int deserializeYml( YAMLNode& dest_obj, Stream &src_stream )
 }
 
 
+#if defined __cpp_exceptions
+  #define YAMLNode_Fail( msg ) throw std::runtime_error(msg);
+#else
+  #define YAMLNode_Fail( msg ) YAML_LOG_e(msg); return YAMLNode{};
+#endif
+
 
 YAMLNode::Type YAMLNode::type() const
 {
@@ -524,6 +530,7 @@ YAMLNode YAMLNode::loadString( const char *str )
 }
 
 
+
 YAMLNode YAMLNode::loadString( const char *str, size_t len )
 {
   yaml_parser_t parser;
@@ -531,7 +538,7 @@ YAMLNode YAMLNode::loadString( const char *str, size_t len )
 
   if (yaml_parser_initialize(&parser) != 1) {
     handle_parser_error( &parser );
-    throw std::runtime_error("Failed to initialize yaml parser");
+    YAMLNode_Fail("Failed to initialize yaml parser");
   }
   yaml_parser_set_encoding(&parser, YAML_UTF8_ENCODING);
   yaml_parser_set_input_string(&parser, (const unsigned char*)str, len);
@@ -539,7 +546,7 @@ YAMLNode YAMLNode::loadString( const char *str, size_t len )
   std::shared_ptr<yaml_document_t> document = YAML::CreateDocument();
   if (yaml_parser_load(&parser, document.get()) != 1) {
     handle_parser_error( &parser );
-    throw std::runtime_error("Failed to load yaml document!");
+    YAMLNode_Fail("Failed to load yaml document!");
   }
 
   yaml_node_t *root = yaml_document_get_root_node(document.get());
@@ -554,7 +561,7 @@ YAMLNode YAMLNode::loadStream( yaml_stream_handler_data_t &shd )
 
   if (yaml_parser_initialize(&parser) != 1) {
     handle_parser_error( &parser );
-    throw std::runtime_error("Failed to initialize yaml parser");
+    YAMLNode_Fail("Failed to initialize yaml parser");
   }
 
   yaml_parser_set_encoding(&parser, YAML_UTF8_ENCODING);
@@ -563,7 +570,7 @@ YAMLNode YAMLNode::loadStream( yaml_stream_handler_data_t &shd )
   std::shared_ptr<yaml_document_t> document = YAML::CreateDocument();
   if (yaml_parser_load(&parser, document.get()) != 1) {
     handle_parser_error( &parser );
-    throw std::runtime_error("Failed to load yaml document!");
+    YAMLNode_Fail("Failed to load yaml document!");
   }
 
   yaml_node_t *root = yaml_document_get_root_node(document.get());
