@@ -35,6 +35,7 @@
 extern "C" {
   #include "libyaml/yaml.h" // https://github.com/yaml/libyaml
 }
+#include <memory>   // for std::shared_ptr
 
 //#define YAML_DISABLE_ARDUINOJSON
 
@@ -64,6 +65,10 @@ extern "C" {
 
 #endif
 
+#if !defined WIO_TERMINAL && __has_include(<FS.h>)
+  #define I18N_SUPPORT
+#endif
+
 
 #define YAML_SCALAR_SPACE " " // YAML is indented with spaces (2 or more), not tabs
 #define JSON_SCALAR_TAB "\t"  // JSON is indented with one tab as a default, this can be changed later
@@ -76,6 +81,10 @@ namespace YAML
   void setYAMLIndent( int spaces_per_indent=2 ); // min=2, max=16
   void setJSONIndent( const char* spaces_or_tabs=JSON_SCALAR_TAB, int folding_depth=JSON_FOLDING_DEPTH );
 };
+
+struct yaml_traverser_t;
+struct yaml_stream_handler_data_t;
+
 
 // provide a default String::Stream reader/writer for internals
 class StringStream : public Stream
@@ -95,76 +104,86 @@ private:
 
 
 
-// the base class
-class YAMLParser
+
+
+class YAMLNode
 {
+  std::shared_ptr<yaml_document_t> mDocument;
+  yaml_node_t *mNode = nullptr;
 public:
-  YAMLParser();
-  ~YAMLParser();
-
-  // generic node type shared between json and yaml iterators
-  enum JNestingType_t { NONE, SEQ_KEY, MAP_KEY };
-  // available output formats
-  enum OutputFormat_t { OUTPUT_YAML, OUTPUT_JSON, OUTPUT_JSON_PRETTY };
-
-  // wrapper struct passed when recursively parsing yaml_document
-  struct yaml_traverser_t
-  {
-    yaml_document_t* document;
-    yaml_node_t* node;
-    Stream* stream;
-    JNestingType_t type;
-    int depth;
+  enum class Type {
+    Null,
+    Scalar,
+    Sequence,
+    Map
   };
-  // serializer function pointer
-  typedef size_t (*yaml_doc_processor_cb)( yaml_traverser_t *it );
 
-  // output controls
-  void setOutputFormat( OutputFormat_t format );
-  void setOutputStream( Stream* stream ) { _yaml_stream = stream; }
+public:
+  YAMLNode() = default;
+  YAMLNode( const YAMLNode& ) = default;
+  YAMLNode( YAMLNode&& ) = default;
+  ~YAMLNode() = default;
 
-  // yaml/json loaders (populates this.document)
-  bool load( const char* yaml_or_json_str );
-  bool load( Stream &yaml_or_json_stream );
+  YAMLNode( std::shared_ptr<yaml_document_t> document, yaml_node_t *node ) :
+    mDocument(document),
+    mNode(node)
+  {}
 
-  // the swiss-army knife functions:
-  // parse any of yaml/json input, and output as yaml, json ugly or json pretty
-  bool parse( OutputFormat_t format=OUTPUT_YAML );
-  bool parse( const char* yaml_or_json_str, OutputFormat_t format=OUTPUT_YAML );
-  bool parse( Stream &yaml_or_json_stream, OutputFormat_t format=OUTPUT_YAML );
+  Type type() const;
 
-  // various getters
-  yaml_document_t* getDocument() { return &document; }
-  String getYamlString() { return _yaml_string; }
-  size_t bytesWritten() { return _bytes_written; }
-  size_t bytesRead()    { return _bytes_read; }
+  static YAMLNode loadString( const char *str );
+  static YAMLNode loadString( const char *str, size_t len );
+  static YAMLNode loadStream( Stream &stream );
+  static YAMLNode loadStream( yaml_stream_handler_data_t &stream_handler_data );
 
+  // serialization
+  static size_t toJSON( yaml_traverser_t *it );
+  static size_t toYAML( yaml_traverser_t *it );
   // error handling
   static void handle_parser_error(yaml_parser_t *parser);
   static void handle_emitter_error(yaml_emitter_t* emitter);
-  static void setLogLevel( YAML::LogLevel_t level );
 
-private:
-  size_t _bytes_read;
-  size_t _bytes_written;
-  String _yaml_string;
-  Stream *_yaml_stream = nullptr;
-  StringStream *_yaml_string_stream_ptr = nullptr;
-  bool _loadDocument();
-  yaml_document_t document;
-  yaml_parser_t   parser;
-  OutputFormat_t  output_format;
-  yaml_doc_processor_cb output_cb;
+
+  const char* scalar() const;
+  const char* gettext( const char* path, char delimiter=':' );
+
+  YAMLNode& operator = ( const YAMLNode& ) = default;
+  YAMLNode& operator = ( YAMLNode&& ) = default;
+  YAMLNode operator [] ( int i ) const;
+  YAMLNode operator [] ( const char *str ) const;
+
+  size_t size() const;
+
+  bool isScalar() const { return type() == Type::Scalar; }
+  bool isSequence() const { return type() == Type::Sequence; }
+  bool isMap() const { return type() == Type::Map; }
+  bool isNull() const { return type() == Type::Null; }
+
+  yaml_document_t* getDocument() { return mDocument.get(); }
+  std::shared_ptr<yaml_document_t> getDocumentSharedPtr() { return mDocument; };
+  yaml_node_t *getNode() { return mNode; }
+
+  void setNode( yaml_node_t *n ) { mNode = n; }
+
 };
 
-typedef YAMLParser::JNestingType_t JNestingType_t;
-typedef YAMLParser::yaml_traverser_t yaml_traverser_t;
-typedef YAMLParser::OutputFormat_t OutputFormat_t;
+
+// available output formats
+enum OutputFormat_t { OUTPUT_YAML, OUTPUT_JSON, OUTPUT_JSON_PRETTY };
 
 
 // Pure libyaml JSON <-> YAML stream-to-stream seralization
-size_t serializeYml( Stream &json_src_stream, Stream &yml_dest_stream, OutputFormat_t format=YAMLParser::OUTPUT_YAML );
+// size_t serializeYml( Stream &json_src_stream, Stream &yml_dest_stream, OutputFormat_t format=YAMLParser::OUTPUT_YAML );
 
+// JSON/YAML document to YAML/JSON string
+size_t serializeYml( yaml_document_t* src_doc, String &dest_string, OutputFormat_t format=OUTPUT_YAML );
+// JSON/YAML object to YAML/JSON stream
+size_t serializeYml( yaml_document_t* src_doc, Stream &dest_stream, OutputFormat_t format=OUTPUT_YAML );
+
+// YAML stream to YAML document
+int deserializeYml( YAMLNode& dest_obj, const char* src_yaml_str );
+// YAML string to YAML document
+int deserializeYml( YAMLNode& dest_obj, Stream &src_stream );
 
 
 #if defined HAS_ARDUINOJSON
@@ -188,28 +207,18 @@ size_t serializeYml( Stream &json_src_stream, Stream &yml_dest_stream, OutputFor
   // default name for the topmost temporary JsonObject
   #define ROOT_NODE "_root_"
   // deconstructors
-  DeserializationError deserializeYml_JsonObject( yaml_document_t*, yaml_node_t* , JsonObject&, JNestingType_t nt=YAMLParser::NONE, const char *nodename="", int depth=0 );
-  size_t serializeYml_JsonVariant( JsonVariant root, Stream &out, int depth_level, JNestingType_t nt );
+  DeserializationError deserializeYml_JsonObject( yaml_document_t*, yaml_node_t* , JsonObject&, YAMLNode::Type nt=YAMLNode::Type::Null, const char *nodename="", int depth=0 );
+  size_t serializeYml_JsonVariant( JsonVariant root, Stream &out, int depth_level, YAMLNode::Type nt );
 
-  class YAMLToArduinoJson : public YAMLParser
+  class YAMLToArduinoJson
   {
   public:
     YAMLToArduinoJson() {};
     ~YAMLToArduinoJson() { if( _doc) delete _doc; }
     void setJsonDocument( const size_t capacity ) { _doc = new DynamicJsonDocument(capacity); _root = _doc->to<JsonObject>(); }
     JsonObject& getJsonObject() { return _root; }
-
-    template<typename T>
-    DeserializationError toJsonObject( T &src, JsonObject& output )
-    {
-      if( !load( src ) ) return DeserializationError::NoMemory;
-      yaml_node_t * node;
-      if (node = yaml_document_get_root_node(getDocument()), !node) {
-        YAML_LOG_e("No document defined.");
-        return DeserializationError::NoMemory;
-      }
-      return deserializeYml_JsonObject(getDocument(), node, output);
-    }
+    static DeserializationError toJsonObject( Stream &src, JsonObject& output );
+    static DeserializationError toJsonObject( const char* src, JsonObject& output );
 
   private:
     DynamicJsonDocument *_doc = nullptr;
@@ -226,7 +235,6 @@ size_t serializeYml( Stream &json_src_stream, Stream &yml_dest_stream, OutputFor
   DeserializationError deserializeYml( JsonDocument &dest_doc, Stream &src);
   // Deserialize YAML stream to ArduinoJSON document
   DeserializationError deserializeYml( JsonDocument &dest_doc, const char *src);
-
 
   // Deserialize YAML string to ArduinoJSON Document
   DeserializationError deserializeYml( JsonObject &dest_doc, const char* src_yaml_str );
@@ -247,45 +255,96 @@ size_t serializeYml( Stream &json_src_stream, Stream &yml_dest_stream, OutputFor
     #include <cJSON/cJSON.h> // bundled with this library
   #endif
 
-
   // deconstructors
-  cJSON* deserializeYml_cJSONObject(yaml_document_t * document, yaml_node_t * yamlNode);
-  size_t serializeYml_cJSONObject( cJSON *root, Stream &out, int depth, JNestingType_t nt );
+  cJSON* deserializeYml_cJSONObject(yaml_document_t* document, yaml_node_t * yamlNode);
+  size_t serializeYml_cJSONObject( cJSON *root, Stream &out, int depth, YAMLNode::Type nt );
 
-
-  class YAMLToCJson : public YAMLParser
+  class YAMLToCJson
   {
   public:
     YAMLToCJson() {};
     ~YAMLToCJson() {};
-    cJSON *toJson( yaml_document_t * document ) {
-      yaml_node_t * node;
-      if (node = yaml_document_get_root_node(document), !node) { YAML_LOG_w("No document defined."); return NULL; }
-      return deserializeYml_cJSONObject(document, node);
-    };
-    cJSON *toJson( const char* yaml_str ) { load( yaml_str );    return toJson( getDocument() ); }
-    cJSON* toJson( Stream &yaml_stream )  { load( yaml_stream ); return toJson( getDocument() ); }
+    static cJSON* toJson( yaml_document_t* document, yaml_node_t* node );
+    static cJSON* toJson( const char* yaml_str ) { YAMLNode yamlnode = YAMLNode::loadString( yaml_str );    auto ret = toJson( yamlnode.getDocument(), yamlnode.getNode() ); return ret; }
+    static cJSON* toJson( Stream &yaml_stream )  { YAMLNode yamlnode = YAMLNode::loadStream( yaml_stream ); auto ret = toJson( yamlnode.getDocument(), yamlnode.getNode() ); return ret; }
   };
-
 
   // cJSON object to YAML string
   size_t serializeYml( cJSON* src_obj, String &dest_string );
   // cJSON object to YAML stream
   size_t serializeYml( cJSON* src_obj, Stream &dest_stream );
 
-  // [templated] YAML string to cJSON object
-  // int deserializeYml( cJSON* dest_obj, const char* src_yaml_str );
-  // [templated] YAML stream to cJSON object
-  // int deserializeYml( cJSON* dest_obj, Stream &src_stream );
-  template<typename T>
-  int deserializeYml( cJSON** dest_obj, T &src_yaml )
-  {
-    YAMLToCJson *parser = new YAMLToCJson();
-    *dest_obj = parser->toJson( src_yaml );
-    delete parser;
-    return *dest_obj != NULL ? 1 : -1;
-  }
+  // YAML stream to cJSON object
+  int deserializeYml( cJSON** dest_obj, const char* src_yaml_str );
+  // YAML string to cJSON object
+  int deserializeYml( cJSON** dest_obj, Stream &src_stream );
+  // YAML document to cJSON object
+  int deserializeYml( cJSON** dest_obj, yaml_document_t* src_document );
 
 
 #endif // HAS_CJSON
+
+
+
+
+
+#if defined I18N_SUPPORT
+
+  #include <FS.h>
+
+  // Deconstructed locale
+  struct i18n_locale_t
+  {
+    char language[5]  {0};  // ISO-639 language code
+    char country[5]   {0};   // ISO-3166 country code
+    char variant[5]   {0};   // ISO-3166 variant code
+    char delimiter[2] {0}; // lang-country-variant delimiter, either stroke or underscore
+    i18n_locale_t() = default;
+  };
+
+
+  // I18N setlocale() and gettext()
+  struct i18n_t
+  {
+
+  public:
+    i18n_t() { };
+    i18n_t( fs::FS *_fs) { setFS( _fs); };
+    ~i18n_t() { clearLocale(); freel10n(); };
+
+    // Use filePath if filename differs from locale e.g. setLocale("en-UD", "/path/to/arbitrary_non_locale_filename_yml")
+    // 'localeStr' must be valid, it can be "xx_XX" or "/path/to/xx_XX.yml"
+    bool setLocale( const char* localeStr, const char* filePath=nullptr );
+    const char* gettext( const char* l10npath, char delimiter=':' );
+    void setFS( fs::FS *_fs ); // set filesystem
+
+  private:
+    fs::FS *fs = nullptr;            // Filesystem
+    i18n_locale_t locale; // Deconstructed locale
+    YAMLNode l10n;        // Localization set, deserialized as YAMLNode
+    std::string path = "/lang/";     // Deconstructed path where the l10n files can be found, with trailing slash
+    std::string extension = "yml";   // Deconstructed file extension (yml, yaml, json)
+    constexpr static const char delimiters[2] = {'-', '_'}; // Supported locale delimiters
+
+    const std::string getLocale(); // reconstruct locale
+
+    bool presetLocale( const char* localeStr );
+    void clearLocale();
+    void freel10n();
+
+    bool loadLocale();
+    bool loadLocaleStream( Stream& stream, size_t size );
+
+    // Note: validation is not made on *values*. Only string length is checked for overflow protection
+    bool isValidISO( char* maybe_iso, size_t min, size_t max );
+    bool isValidLocale( char* maybe_locale );
+    bool isValidLang( char* maybe_iso3166 );
+    bool isValidVariant( char* maybe_iso3166 );
+    bool isValidCountry( char* maybe_iso639 );
+
+  };
+
+
+#endif // defined WIO_TERMINAL
+
 

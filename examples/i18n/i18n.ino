@@ -1,8 +1,8 @@
 #include <LittleFS.h>
-#include <ArduinoJson.h>
+//#include <ArduinoJson.h>
 #define YAML_DISABLE_CJSON // not needed here
 #include <YAMLDuino.h>
-#include <i18n/i18n.hpp>
+
 
 #include <vector>
 static std::vector<String> i18nFiles;
@@ -49,6 +49,8 @@ void loop()
 {
   int randLang = rand()%(i18nFiles.size());
 
+  int free_heap_before_load = ESP.getFreeHeap();
+
   if(! i18n.setLocale(i18nFiles[randLang].c_str()) ) {
 
     Serial.printf( "[%d] Error loading locale %s, halting\n", ESP.getFreeHeap(), i18nFiles[randLang].c_str());
@@ -56,7 +58,9 @@ void loop()
     while(1) vTaskDelay(1);
   }
 
-  Serial.printf( "[%d] Locale file %s loaded\n", ESP.getFreeHeap(), i18nFiles[randLang].c_str());
+  int free_heap_after_load = ESP.getFreeHeap();
+
+  Serial.printf( "[%d-%d] Locale file %s loaded\n", free_heap_before_load, free_heap_after_load, i18nFiles[randLang].c_str());
 
   Serial.printf( "[%d] %s\n", ESP.getFreeHeap(), i18n.gettext("activerecord:errors:messages:record_invalid" ) ); // "La validation a échoué : %{errors}"
   Serial.printf( "[%d] %s\n", ESP.getFreeHeap(), i18n.gettext("date:abbr_day_names:2" ) ); // "mar"
