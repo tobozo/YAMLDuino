@@ -310,7 +310,7 @@ int deserializeYml( YAMLNode& dest_obj, Stream &src_stream );
   public:
     i18n_t() { };
     i18n_t( fs::FS *_fs) { setFS( _fs); };
-    ~i18n_t() { clearLocale(); freel10n(); };
+    ~i18n_t() { clearLocale(); };
 
     // Use filePath if filename differs from locale e.g. setLocale("en-UD", "/path/to/arbitrary_non_locale_filename_yml")
     // 'localeStr' must be valid, it can be "xx_XX" or "/path/to/xx_XX.yml"
@@ -330,7 +330,6 @@ int deserializeYml( YAMLNode& dest_obj, Stream &src_stream );
 
     bool presetLocale( const char* localeStr );
     void clearLocale();
-    void freel10n();
 
     bool loadLocale();
     bool loadLocaleStream( Stream& stream, size_t size );

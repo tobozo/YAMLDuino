@@ -1157,18 +1157,6 @@ size_t YAMLNode::toYAML( yaml_traverser_t *it )
   }
 
 
-  void i18n_t::freel10n()
-  {
-    #if defined HAS_ARDUINOJSON
-      if( l10n.docref != NULL ) l10n.docref = NULL;
-      if( l10n.docptr != nullptr ) {
-        delete l10n.docptr;
-        l10n.docptr = nullptr;
-      }
-    #endif
-  }
-
-
   void i18n_t::clearLocale()
   {
     memset( locale.language,  0, sizeof(i18n_locale_t::language) );
