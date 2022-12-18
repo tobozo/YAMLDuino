@@ -1,4 +1,8 @@
+
 #include <ArduinoJson.h>
+
+//#define YAML_DISABLE_CJSON // not needed here
+//#define YAML_DISABLE_ARDUINOJSON // not needed here
 
 // those defines should always be set *before* including YAMLDuino.h
 
@@ -394,8 +398,10 @@ void setup()
 
   // YAMLNode 'gettext' 96 bytes memleak happens once, so force it now
   { YAMLNode::loadString("{\"blah\":{\"stuff\":\"true\"}}").gettext("blah:stuff"); }
-  // cJSON 'float' 464 bytes memleak happens once, so force it now
-  { cJSON* objPtr = cJSON_Parse( "{\"float\":12.3323}" ); serializeYml( objPtr, Serial ); cJSON_Delete( objPtr ); }
+  #if defined HAS_CJSON
+    // cJSON 'float' 464 bytes memleak happens once, so force it now
+    { cJSON* objPtr = cJSON_Parse( "{\"float\":12.3323}" ); serializeYml( objPtr, Serial ); cJSON_Delete( objPtr ); }
+  #endif
 
   Serial.println("\n");
   YAML_LOG_n("### JSON<=>YAML using libyaml:\n");

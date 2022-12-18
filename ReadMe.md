@@ -21,9 +21,13 @@ This arduino library is based on [libyaml](https://github.com/yaml/libyaml).
 ### Features:
 
 - YAML➔JSON and JSON➔YAML conversion
+- Accepts *valid* JSON or YAML as the input.
+- Standalone serializers/deserializers
 - ArduinoJson serializers/deserializers
 - cJSON serializers/deserializers
-- YAML Loader + gettext() i18n accessor
+- Node accessors
+- l10n style gettext()
+- i18n loader
 
 ----------------------------
 
@@ -32,14 +36,12 @@ This arduino library is based on [libyaml](https://github.com/yaml/libyaml).
 
 ```cpp
 #include <ArduinoYaml.h>
-
 ```
 
 or
 
 ```cpp
 #include <YAMLDuino.h>
-
 ```
 
 ----------------------------
@@ -50,10 +52,8 @@ or
 YAML is a superset of JSON, so native conversion from/to JSON is possible without any additional JSON library.
 
 ```cpp
-// JSON <=> YAML stream to stream conversion (both ways!).
-// Accepts valid JSON or YAML as the input.
 // Available values for output format:
-//   OUTPUT_YAML
+//   OUTPUT_YAML (default)
 //   OUTPUT_JSON
 //   OUTPUT_JSON_PRETTY
 // JSON/YAML document to YAML/JSON string
@@ -73,8 +73,8 @@ int deserializeYml( YAMLNode& dest_obj, Stream &src_stream );
 ```cpp
 String yaml_str = "hello: world\nboolean: true\nfloat: 1.2345";
 YAMLNode yamlnode = YAMLNode::loadString( yaml_str );
-serializeYml( yamlnode.getDocument(), Serial, OUTPUT_JSON_PRETTY );
-
+serializeYml( yamlnode.getDocument(), Serial, OUTPUT_JSON_PRETTY ); // pretty JSON
+// serializeYml( yamlnode.getDocument(), Serial, OUTPUT_JSON ); // ugly JSON
 ```
 
 
@@ -259,18 +259,87 @@ YAML::setYAMLIndent( 3 );
 
 ----------------------------
 
+## YAML gettext Module
 
-## I18N/L10N Module
+The gettext module is a member of YAMLNode object.
 
-Note: Support is disabled with WIO Terminal (platform needs a proper `fs::FS` filesystem implementation).
+```cpp
+class YAMLNode
+{
+  // (...)
+public:
+  const char* gettext( const char* path, char delimiter=':' );
+  // YAMLNode objects also bring few interesting methods to scope:
+  const char* scalar();
+  size_t size();
+  bool isScalar();
+  bool isSequence();
+  bool isMap();
+  bool isNull();
+  // (...)
+}
+```
+
+#### Usage (persistent)
+
+Load from string:
+```cpp
+YAMLNode yamlnode = YAMLNode::loadString( yaml_or_json_string );
+```
+
+Load from stream:
+```cpp
+YAMLNode yamlnode = YAMLNode::loadStream( yaml_or_json_stream );
+```
+
+
+Access a value:
+```cpp
+const char* text = yamlnode.gettext( "path:to:property:name" );
+```
+
+#### Usage (non persistent)
+
+YAMLNode supports chaining:
+
+```cpp
+// load yaml and extract value from 'stuff'
+YAMLNode::loadString("blah:\n  stuff:\n    true\n").gettext("blah:stuff");
+// load json and extract value from 'stuff'
+YAMLNode::loadString("{\"blah\":{\"stuff\":\"true\"}}").gettext("blah:stuff");
+```
+
+
+## I18N/L10N with gettext Module
+
+Note: i18n Support is disabled with WIO Terminal (platform needs a proper `fs::FS` filesystem implementation).
+WIO Terminal can still use the native `YAMLNode::gettext()` though.
+
 
 #### Usage
 
 * Include ArduinoJson and a `fs::FS` filesystem first
-* Load the i18n module with `#include <i18n/i18n.hpp>`.
 * Create an i18n instance and assign the filesystem `i18n_t i18n( &LittleFS );`.
-* Load a locale with `i18n.setLocale()`.
+* Load `en-GB` locale with `i18n.setLocale("en-GB")`.
 * Use `i18n.gettext()` to access localized strings.
+
+
+#### Example
+
+YAML Sample `/lang/en-GB.yml` stored in LittleFS:
+
+```yml
+en-GB:
+  hello: world
+  blah:
+    my_array:
+    - first
+    - second
+    - third
+
+```
+
+Load the language file and access translations:
 
 
 ```cpp
@@ -280,19 +349,6 @@ Note: Support is disabled with WIO Terminal (platform needs a proper `fs::FS` fi
 
 
 i18n_t i18n( &LittleFS ); // Create an i18n instance attached to filesystem
-
-/*
-YAML Sample example `/lang/en-GB.yml` stored in LittleFS:
-
-en-GB:
-  hello: world
-  blah:
-    my_array:
-    - first
-    - second
-    - third
-
-*/
 
 void setup()
 {
