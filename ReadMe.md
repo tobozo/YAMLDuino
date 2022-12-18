@@ -16,13 +16,18 @@ This arduino library is based on [libyaml](https://github.com/yaml/libyaml).
 - RP2040
 - ESP8266
 - SAMD
+- TeensyDuino
 
 ### Features:
 
 - YAML➔JSON and JSON➔YAML conversion
+- Accepts *valid* JSON or YAML as the input.
+- Standalone serializers/deserializers
 - ArduinoJson serializers/deserializers
 - cJSON serializers/deserializers
-
+- Node accessors
+- l10n style gettext()
+- i18n loader
 
 ----------------------------
 
@@ -31,14 +36,12 @@ This arduino library is based on [libyaml](https://github.com/yaml/libyaml).
 
 ```cpp
 #include <ArduinoYaml.h>
-
 ```
 
 or
 
 ```cpp
 #include <YAMLDuino.h>
-
 ```
 
 ----------------------------
@@ -49,13 +52,19 @@ or
 YAML is a superset of JSON, so native conversion from/to JSON is possible without any additional JSON library.
 
 ```cpp
-// JSON <=> YAML stream to stream conversion (both ways!).
-// Accepts valid JSON or YAML as the input.
 // Available values for output format:
-//   YAMLParser::OUTPUT_YAML
-//   YAMLParser::OUTPUT_JSON
-//   YAMLParser::OUTPUT_JSON_PRETTY
-size_t serializeYml( Stream &source, Stream &destination, OutputFormat_t format );
+//   OUTPUT_YAML (default)
+//   OUTPUT_JSON
+//   OUTPUT_JSON_PRETTY
+// JSON/YAML document to YAML/JSON string
+size_t serializeYml( yaml_document_t* src_doc, String &dest_string, OutputFormat_t format=OUTPUT_YAML );
+// JSON/YAML object to YAML/JSON stream
+size_t serializeYml( yaml_document_t* src_doc, Stream &dest_stream, OutputFormat_t format=OUTPUT_YAML );
+
+// YAML stream to YAML document
+int deserializeYml( YAMLNode& dest_obj, const char* src_yaml_str );
+// YAML string to YAML document
+int deserializeYml( YAMLNode& dest_obj, Stream &src_stream );
 
 ```
 
@@ -63,10 +72,9 @@ size_t serializeYml( Stream &source, Stream &destination, OutputFormat_t format 
 **Convert YAML to JSON**
 ```cpp
 String yaml_str = "hello: world\nboolean: true\nfloat: 1.2345";
-StringStream yaml_stream( yaml_str );
-
-serializeYml( yaml_stream, Serial, YAMLParser::OUTPUT_JSON_PRETTY );
-
+YAMLNode yamlnode = YAMLNode::loadString( yaml_str );
+serializeYml( yamlnode.getDocument(), Serial, OUTPUT_JSON_PRETTY ); // pretty JSON
+// serializeYml( yamlnode.getDocument(), Serial, OUTPUT_JSON ); // ugly JSON
 ```
 
 
@@ -74,10 +82,8 @@ serializeYml( yaml_stream, Serial, YAMLParser::OUTPUT_JSON_PRETTY );
 **Convert JSON to YAML**
 ```cpp
 String json_str = "{\"hello\": \"world\", \"boolean\": true, \"float\":1.2345}";
-StringStream json_stream( json_str );
-
-serializeYml( json_stream, Serial, YAMLParser::OUTPUT_YAML );
-
+YAMLNode yamlnode = YAMLNode::loadString( yaml_str );
+serializeYml( yamlnode.getDocument(), Serial, OUTPUT_YAML );
 ```
 
 ----------------------------
@@ -123,9 +129,9 @@ See the [motivational post](https://github.com/bblanchon/ArduinoJson/issues/1808
 
 ArduinoJson support is implicitely enabled on most platforms except for ESP32 where dependencies can be detected.
 
+*****ESP32 plaforms must include ArduinoJson.h before ArduinoYaml.h or bindings will be disabled!******
 
 ```cpp
-// ESP32 plaforms must include ArduinoJson before ArduinoYaml or functions will be disabled
 #include <ArduinoJson.h>
 #include <ArduinoYaml.h>
 ```
@@ -172,6 +178,8 @@ size_t serializeYml( cJSON* src_obj, Stream &dest_stream );
 int deserializeYml( cJSON* dest_obj, const char* src_yaml_str );
 // YAML stream to cJSON object
 int deserializeYml( cJSON* dest_obj, Stream &src_stream );
+// YAML document to cJSON object
+int deserializeYml( cJSON** dest_obj, yaml_document_t* src_document );
 
 ```
 
@@ -235,7 +243,7 @@ Set custom JSON indentation and folding depth:
 
 ```cpp
 // this set two spaces per indentation level, unfolds up to 8 nesting levels
-YAMLParser::setJSONIndent("  ", 8 ); // lame fact: folds on objects, not on arrays
+YAML::setJSONIndent("  ", 8 ); // lame fact: folds on objects, not on arrays
 
 ```
 
@@ -251,43 +259,106 @@ YAML::setYAMLIndent( 3 );
 
 ----------------------------
 
+## YAML gettext Module
 
-## I18N and L10N
+The gettext module is a member of YAMLNode object.
 
-Note: Support is disabled with WIO Terminal (needs a proper fs::FS implementation).
+```cpp
+class YAMLNode
+{
+  // (...)
+public:
+  const char* gettext( const char* path, char delimiter=':' );
+  // YAMLNode objects also bring few interesting methods to scope:
+  const char* scalar();
+  size_t size();
+  bool isScalar();
+  bool isSequence();
+  bool isMap();
+  bool isNull();
+  // (...)
+}
+```
 
-* Load the module with `#include <i18n/i18n.hpp>`.
-* Assign a filesystem with `i18n.setFS()`.
-* Load a locale with `i18n.setLocale()`.
+#### Usage (persistent)
+
+Load from string:
+```cpp
+YAMLNode yamlnode = YAMLNode::loadString( yaml_or_json_string );
+```
+
+Load from stream:
+```cpp
+YAMLNode yamlnode = YAMLNode::loadStream( yaml_or_json_stream );
+```
+
+
+Access a value:
+```cpp
+const char* text = yamlnode.gettext( "path:to:property:name" );
+```
+
+#### Usage (non persistent)
+
+YAMLNode supports chaining:
+
+```cpp
+// load yaml and extract value from 'stuff'
+YAMLNode::loadString("blah:\n  stuff:\n    true\n").gettext("blah:stuff");
+// load json and extract value from 'stuff'
+YAMLNode::loadString("{\"blah\":{\"stuff\":\"true\"}}").gettext("blah:stuff");
+```
+
+
+## I18N/L10N with gettext Module
+
+Note: i18n Support is disabled with WIO Terminal (platform needs a proper `fs::FS` filesystem implementation).
+WIO Terminal can still use the native `YAMLNode::gettext()` though.
+
+
+#### Usage
+
+* Include ArduinoJson and a `fs::FS` filesystem first
+* Create an i18n instance and assign the filesystem `i18n_t i18n( &LittleFS );`.
+* Load `en-GB` locale with `i18n.setLocale("en-GB")`.
 * Use `i18n.gettext()` to access localized strings.
+
+
+#### Example
+
+YAML Sample `/lang/en-GB.yml` stored in LittleFS:
+
+```yml
+en-GB:
+  hello: world
+  blah:
+    my_array:
+    - first
+    - second
+    - third
+
+```
+
+Load the language file and access translations:
 
 
 ```cpp
 
-#include <LittleFS.h>
-#include <ArduinoJson.h>
-#define YAML_DISABLE_CJSON // not needed here
-#include <YAMLDuino.h>
-#include <i18n/i18n.hpp>
+#include <LittleFS.h>      // Mandatory filestem (can be SPIFFS, SD, SD_MMC, LittleFS)
+#include <YAMLDuino.h>     // Load the library
 
-// Sample example `/lang/en-GB.yml` stored in LittleFS:
-//
-// en-GB:
-//   hello: world
-//   blah:
-//     my_array:
-//     - first
-//     - second
-//     - third
 
+i18n_t i18n( &LittleFS ); // Create an i18n instance attached to filesystem
 
 void setup()
 {
   Serial.begin(115200);
   LittleFS.begin();
 
-  i18n.setFS( &LittleFS ); // assign LittleFS
-  i18n.setLocale("en-GB"); // will load "/lang/en-GB.yml" language file
+  // i18n.setFS( &SD ); // change filesystem to SD
+  i18n.setLocale("en-GB"); // This will look for "en-GB.yml" language file in "/lang/" folder and set "en-GB" as locale
+  // i18n.setLocale("/lang/en-GB.yml"); // This will load "/lang/en-GB.yml" language file and set "en-GB" as locale
+  // i18n.setLocale("en-GB", "/non-locale/file.yml"); // This will set "en-GB" as locale and load arbitrary "/non-locale/file.yml" language file
 
   Serial.println( i18n.gettext("hello" ) ); // prints "world"
   Serial.println( i18n.gettext("blah:my_array:2" ) ); // prints "third"
@@ -327,7 +398,7 @@ Set library debug level:
 //   LogLevelInfo    : Errors+Warnings+Info
 //   LogLevelDebug   : Errors+Warnings+Info+Debug
 //   LogLevelVerbose : Errors+Warnings+Info+Debug+Verbose
-YAMLParser::setLogLevel( YAML::LogLevelDebug );
+YAML::setLogLevel( YAML::LogLevelDebug );
 ```
 
 ----------------------------
@@ -355,6 +426,7 @@ project. Thanks in advance!
   - [@DaveGamble](https://github.com/DaveGamble)
   - [@bblanchon](https://github.com/bblanchon)
   - [@vikman90](https://github.com/vikman90/yaml2json)
+  - [@Visse](https://github.com/Visse/libyaml-cpp)
 
 
 
@@ -364,3 +436,4 @@ project. Thanks in advance!
   - ArduinoStreamUtils : https://github.com/bblanchon/ArduinoStreamUtils
   - cJSON : https://github.com/DaveGamble/cJSON
   - libyaml : https://github.com/yaml/libyaml
+
