@@ -1,4 +1,5 @@
 /*\
+ *
  * @file
  * @version 1.0
  * @author tobozo <tobozo@users.noreply.github.com>
@@ -63,10 +64,10 @@ namespace YAML
 
 
     /*\
-    * @brief Confirm a string only contains one given char
-    *
-    * setJSONIndent helper, checks if haystack
-    * is filled with needle.
+     * @brief Confirm a string only contains one given char
+     *
+     * setJSONIndent helper, checks if haystack
+     * is filled with needle.
     \*/
     bool is_filled_with( char needle, const char* haystack )
     {
@@ -421,10 +422,10 @@ namespace YAML
 
 
   /*\
-  * @brief YAML document copier
-  *
-  * Creates a copy of a given document.
-  *
+   * @brief YAML document copier
+   *
+   * Creates a copy of a given document.
+   *
   \*/
   int yaml_copy_document(yaml_document_t *dest, yaml_document_t *src)
   {
@@ -550,8 +551,8 @@ namespace YAML
 
 
     /*\
-    * @brief Get the node type
-    *
+     * @brief Get the node type
+     *
     \*/
     YAMLNode::Type YAMLNode::type() const
     {
@@ -572,8 +573,8 @@ namespace YAML
 
 
     /*\
-    * @brief Get scalar value
-    *
+     * @brief Get scalar value
+     *
     \*/
     const char* YAMLNode::scalar() const
     {
@@ -585,8 +586,8 @@ namespace YAML
 
 
     /*\
-    * @brief Node Accessor (sequence)
-    *
+     * @brief Node Accessor (sequence)
+     *
     \*/
     YAMLNode YAMLNode::operator [] ( int i ) const
     {
@@ -605,8 +606,8 @@ namespace YAML
 
 
     /*\
-    * @brief Node Accessor (map)
-    *
+     * @brief Node Accessor (map)
+     *
     \*/
     YAMLNode YAMLNode::operator [] ( const char *str ) const
     {
@@ -632,8 +633,8 @@ namespace YAML
 
 
     /*\
-    * @brief Node size
-    *
+     * @brief Node size
+     *
     \*/
     size_t YAMLNode::size() const
     {
@@ -657,10 +658,10 @@ namespace YAML
 
 
     /*\
-    * @brief YAML String loader
-    *
-    * Note: this is a static method
-    *
+     * @brief YAML String loader
+     *
+     * Note: this is a static method
+     *
     \*/
     YAMLNode YAMLNode::loadString( const char *str )
     {
@@ -670,10 +671,10 @@ namespace YAML
 
 
     /*\
-    * @brief YAML String loader
-    *
-    * Note: this is a static method
-    *
+     * @brief YAML String loader
+     *
+     * Note: this is a static method
+     *
     \*/
     YAMLNode YAMLNode::loadString( const char *str, size_t len )
     {
@@ -699,10 +700,10 @@ namespace YAML
 
 
     /*\
-    * @brief YAML Stream loader (stream handler data)
-    *
-    * Note: this is a static method
-    *
+     * @brief YAML Stream loader (stream handler data)
+     *
+     * Note: this is a static method
+     *
     \*/
     YAMLNode YAMLNode::loadStream( yaml_stream_handler_data_t &shd )
     {
@@ -729,10 +730,10 @@ namespace YAML
 
 
     /*\
-    * @brief YAML Stream loader (basic stream)
-    *
-    * Note: this is a static method
-    *
+     * @brief YAML Stream loader (basic stream)
+     *
+     * Note: this is a static method
+     *
     \*/
     YAMLNode YAMLNode::loadStream( Stream &stream )
     {
@@ -743,10 +744,10 @@ namespace YAML
 
 
     /*\
-    * @brief l10n style gettext
-    *
-    * L10N: Return localized string when given a path e.g. 'blah:some:property:count:1'
-    *
+     * @brief l10n style gettext
+     *
+     * L10N: Return localized string when given a path e.g. 'blah:some:property:count:1'
+     *
     \*/
     const char* YAMLNode::gettext( const char* path, char delimiter)
     {
@@ -799,8 +800,8 @@ namespace YAML
 
 
     /*\
-    * @brief Parser error handler
-    *
+     * @brief Parser error handler
+     *
     \*/
     void YAMLNode::handle_parser_error(yaml_parser_t *p)
     {
@@ -830,8 +831,8 @@ namespace YAML
 
 
     /*\
-    * @brief Emitter error handler
-    *
+     * @brief Emitter error handler
+     *
     \*/
     void YAMLNode::handle_emitter_error(yaml_emitter_t *e)
     {
@@ -845,10 +846,10 @@ namespace YAML
 
 
     /*\
-    * @brief yaml_document_t traverser (not really a deconstructor)
-    *
-    * Output format: JSON
-    *
+     * @brief yaml_document_t traverser (not really a deconstructor)
+     *
+     * Output format: JSON
+     *
     \*/
     size_t YAMLNode::toJSON( yaml_traverser_t *it )
     {
@@ -925,10 +926,10 @@ namespace YAML
 
 
     /*\
-    * @brief yaml_document_t traverser (not really a deconstructor)
-    *
-    * Output format: YAML
-    *
+     * @brief yaml_document_t traverser (not really a deconstructor)
+     *
+     * Output format: YAML
+     *
     \*/
     size_t YAMLNode::toYAML( yaml_traverser_t *it )
     {

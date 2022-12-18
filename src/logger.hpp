@@ -1,4 +1,5 @@
 /*\
+ *
  * @file
  * @version 1.0
  * @author tobozo <tobozo@users.noreply.github.com>
@@ -232,6 +233,5 @@ namespace YAML
     }
 
   };
-
 
 };
