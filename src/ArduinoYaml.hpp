@@ -57,7 +57,7 @@ extern "C"
 
 #define I18N_SUPPORT
 
-#if !defined WIO_TERMINAL && __has_include(<FS.h>)
+#if __has_include(<FS.h>)
   #define I18N_SUPPORT_FS
 #endif
 
