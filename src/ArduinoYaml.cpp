@@ -1710,7 +1710,7 @@ namespace YAML
         \*/
         bool i18n_t::setLocale( const char* localeStr, const char* filePath )
         {
-          if( filePath == nullptr ) return presetLocale( localeStr ) ? loadLocale() : false; // no path provided, guess
+          if( filePath == nullptr ) return presetLocale( localeStr ) ? loadFsLocale() : false; // no path provided, guess
           if( fs == nullptr || ! fs->exists( filePath ) ) return false; // a filePath was provided but filesystem or file doesn't exist
           if( ! presetLocale( localeStr ) ) return false; // localeStr is invalid
           fs::File localeFile = fs->open( filePath, "r" );
