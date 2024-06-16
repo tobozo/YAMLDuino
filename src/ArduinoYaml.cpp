@@ -1007,11 +1007,18 @@ namespace YAML
             char* end;
             scalar = SCALAR_s(yamlNode);
             number = strtod(scalar, &end);
+            bool is_double = false;
             bool is_bool = false;
             bool bool_value = false;
             bool is_string = (end == scalar || *end);
             if( is_string && yaml_node_is_bool( yamlNode, &bool_value ) ) {
               is_bool = true;
+            }
+            if( SCALAR_Quoted(yamlNode) ) {
+              is_string = true;
+            }
+            if( !is_bool && !is_string ) {
+              is_double = String(scalar).indexOf(".") > 0;
             }
             switch( nt ) {
               case YAMLNode::Type::Sequence:
@@ -1019,13 +1026,15 @@ namespace YAML
                 JsonArray array = jsonNode[nodename];
                 if(is_bool)        array.add( bool_value );
                 else if(is_string) array.add( scalar );
-                else               array.add( number );
+                else if(is_double) array.add( number );
+                else               array.add( (int64_t)number );
               }
               break;
               case YAMLNode::Type::Map:
                 if(is_bool)        jsonNode[nodename] = bool_value;
                 else if(is_string) jsonNode[nodename] = scalar;
-                else               jsonNode[nodename] = number;
+                else if(is_double) jsonNode[nodename] = number;
+                else               jsonNode[nodename] = (int64_t)number;
               break;
               default: YAML_LOG_e("Error invalid nesting type"); break;
             }
@@ -1033,19 +1042,23 @@ namespace YAML
           break;
           case YAML_SEQUENCE_NODE:
           {
-            JsonArray tmpArray = jsonNode.createNestedArray((char*)nodename);
+            jsonNode[(char*)nodename].to<JsonArray>();
+            JsonArray nodeArray = jsonNode[(char*)nodename];//.to<JsonArray>();
+
             yaml_node_item_t * item_i;
             yaml_node_t *itemNode;
             String _nodeItemName;
+            JsonDocument copyDoc;
             JsonObject tmpObj;
             for (item_i = yamlNode->data.sequence.items.start; item_i < yamlNode->data.sequence.items.top; ++item_i) {
               itemNode = yaml_document_get_node(document, *item_i);
               if( itemNode->type == YAML_MAPPING_NODE ) { // array of anonymous objects
-                tmpObj = tmpArray.createNestedObject(); // insert empty nested object
-                _nodeItemName = ROOT_NODE + String( nodename ) + String( tmpArray.size() ); // generate a temporary nodename
-                tmpObj.createNestedObject((char*)_nodeItemName.c_str());
+                tmpObj = nodeArray.add<JsonObject>(); // insert empty nested object
+                _nodeItemName = ROOT_NODE + String( nodename ) + String( nodeArray.size() ); // generate a temporary nodename
+                tmpObj[(char*)_nodeItemName.c_str()].to<JsonObject>();
                 deserializeYml_JsonObject( document, itemNode, tmpObj, YAMLNode::Type::Sequence, _nodeItemName.c_str(), depth+1 ); // go recursive using temporary node name
-                jsonNode[nodename][tmpArray.size()-1] = tmpObj[_nodeItemName.c_str()]; // remove temporary name and make object anonymous
+                copyDoc.set(tmpObj[_nodeItemName]); // make object anonymous, remove temporary nodename
+                nodeArray[nodeArray.size()-1].set(copyDoc); // replace array item by reparented node
               } else { // array of sequences or values
                 _nodeItemName = "" + String( nodename );
                 deserializeYml_JsonObject( document, itemNode, jsonNode, YAMLNode::Type::Sequence, _nodeItemName.c_str(), depth+1 );
@@ -1055,7 +1068,7 @@ namespace YAML
           break;
           case YAML_MAPPING_NODE:
           {
-            JsonObject tmpNode = isRootNode ? jsonNode : jsonNode.createNestedObject((char*)nodename);
+            JsonObject tmpNode = isRootNode ? jsonNode : jsonNode[(char*)nodename].to<JsonObject>();
             yaml_node_pair_t* pair_i;
             yaml_node_t* key;
             yaml_node_t* value;
@@ -1066,7 +1079,7 @@ namespace YAML
                 YAML_LOG_e("Mapping key is not scalar (line %lu, val=%s).", key->start_mark.line, SCALAR_c(value) );
                 continue;
               }
-              tmpNode.createNestedObject( SCALAR_s(key) );
+              tmpNode[SCALAR_s(key)].add<JsonObject>();
               deserializeYml_JsonObject( document, value, tmpNode, YAMLNode::Type::Map, SCALAR_c(key), depth+1 );
             }
           }
@@ -1266,7 +1279,7 @@ namespace YAML
             char * end;
             scalar = SCALAR_s(yamlNode);
             number = strtod(scalar, &end);
-            if( (end == scalar || *end) ) { // string or bool
+            if( (end == scalar || *end) || SCALAR_Quoted(yamlNode) ) { // string or bool
               bool bool_value;
               if( yaml_node_is_bool( yamlNode, &bool_value ) ) {
                 object = cJSON_CreateBool( bool_value );
