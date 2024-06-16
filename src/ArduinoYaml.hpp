@@ -85,6 +85,9 @@ extern "C"
 
 #if defined HAS_ARDUINOJSON
   #include <ArduinoJson.h>
+  #if ARDUINOJSON_VERSION_MAJOR<7
+    #error "ArduinoJSON version is deprecated, please upgrade to 7.x"
+  #endif
 #endif
 
 #if defined HAS_CJSON
@@ -121,6 +124,7 @@ namespace YAML
   // shorthand to libyaml scalar values
   #define SCALAR_c(x) (const char*)x->data.scalar.value
   #define SCALAR_s(x)       (char*)x->data.scalar.value
+  #define SCALAR_Quoted(n) n->data.scalar.style == YAML_SINGLE_QUOTED_SCALAR_STYLE || n->data.scalar.style == YAML_DOUBLE_QUOTED_SCALAR_STYLE
 
   void setYAMLIndent( int spaces_per_indent=2 ); // min=2, max=16
   void setJSONIndent( const char* spaces_or_tabs=JSON_SCALAR_TAB, int folding_depth=JSON_FOLDING_DEPTH );
@@ -290,13 +294,13 @@ namespace YAML
       public:
         YAMLToArduinoJson() {};
         ~YAMLToArduinoJson() { if( _doc) delete _doc; }
-        void setJsonDocument( const size_t capacity ) { _doc = new DynamicJsonDocument(capacity); _root = _doc->to<JsonObject>(); }
+        void setJsonDocument( const size_t capacity ) { _doc = new JsonDocument; _root = _doc->to<JsonObject>(); }
         JsonObject& getJsonObject() { return _root; }
         static DeserializationError toJsonObject( Stream &src, JsonObject& output );
         static DeserializationError toJsonObject( const char* src, JsonObject& output );
 
       private:
-        DynamicJsonDocument *_doc = nullptr;
+        JsonDocument *_doc = nullptr;
         JsonObject _root;
 
       };

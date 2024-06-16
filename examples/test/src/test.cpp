@@ -1,6 +1,10 @@
 
 #include <ArduinoJson.h>
 
+#if ARDUINOJSON_VERSION_MAJOR<7
+  #error "ArduinoJSON version is deprecated, please upgrade to 7.x"
+#endif
+
 //#define YAML_DISABLE_CJSON // not needed here
 //#define YAML_DISABLE_ARDUINOJSON // not needed here
 
@@ -45,9 +49,11 @@ blah:
       prop3: bar
       prop2: baz
       prop4: wat
-  integer: 12345
+  integer: 1234567890
+  quoted_integer: "1234567890"
   # this float value gives a memleak to cJSON
   float: 12.3323
+  quoted_float: "12.3323"
   inline_json_for_the_haters: { "hello":"json", "nested":[3,2,"1","moon"] }
 whatever:
   nope: ["n","o","p","e"]
@@ -78,8 +84,10 @@ const char* json_sample_str = R"_JSON_STRING_(
         "prop4": "wat"
       }
     ],
-    "integer": 12345,
+    "integer": 1234567890,
+    "quoted_integer": "1234567890",
     "float": 12.3323,
+    "quoted_float": "12.3323",
     "inline_json_for_the_haters": { "hello": "json", "nested": [ 3, 2, "1", "moon" ] }
   },
   "whatever": { "nope": [ "n", "o", "p", "e" ] },
@@ -199,7 +207,7 @@ void test_Json_gettext_stream()
   {
     String yaml_str = String( yaml_sample_str );
     StringStream yaml_stream( yaml_str );
-    DynamicJsonDocument json_doc(2048);
+    JsonDocument json_doc;
     JsonObject json_obj = json_doc.to<JsonObject>();
     auto err = deserializeYml( json_obj, yaml_stream ); // deserialize yaml stream to JsonObject
     if( err ) {
@@ -215,7 +223,7 @@ void test_Json_gettext_stream()
 
   void test_deserializeYml_JsonObject_YamlString()
   {
-    DynamicJsonDocument json_doc(2048);
+    JsonDocument json_doc;
     JsonObject json_obj = json_doc.to<JsonObject>();
     auto err = deserializeYml( json_obj, yaml_sample_str ); // deserialize yaml string to JsonObject
     if( err ) {
@@ -230,7 +238,7 @@ void test_Json_gettext_stream()
 
   void test_deserializeYml_JsonDocument_YamlStream()
   {
-    DynamicJsonDocument json_doc(2048);
+    JsonDocument json_doc;
     String yaml_str = String( yaml_sample_str );
     StringStream yaml_stream( yaml_str );
     auto err = deserializeYml( json_doc, yaml_stream ); // deserialize yaml stream to JsonDocument
@@ -248,7 +256,7 @@ void test_Json_gettext_stream()
   void test_deserializeYml_JsonDocument_YamlString()
   {
     String yaml_str( yaml_sample_str );
-    DynamicJsonDocument json_doc(2048);
+    JsonDocument json_doc;
     auto err = deserializeYml( json_doc, yaml_str.c_str() ); // deserialize yaml string to JsonDocument
     if( err ) {
       YAML_LOG_n("Unable to deserialize demo YAML to JsonObject: %s", err.c_str() );
@@ -267,7 +275,7 @@ void test_Json_gettext_stream()
     String str_yaml_out = ""; // YAML output string
     String json_str = String( json_sample_str );
     StringStream yaml_stream_out( str_yaml_out ); // Stream to str_yaml_out
-    DynamicJsonDocument doc(2048); // create and populate a JsonObject
+    JsonDocument doc; // create and populate a JsonObject
     auto err = deserializeJson( doc, json_str.c_str() );
     if( err ) {
       YAML_LOG_n("Unable to deserialize demo JSON to JsonObject: %s", err.c_str() );
@@ -285,7 +293,7 @@ void test_Json_gettext_stream()
     // Convert JsonObject to yaml
     String str_yaml_out = ""; // YAML output string
     String json_str = String( json_sample_str );
-    DynamicJsonDocument doc(2048); // create and populate a JsonObject
+    JsonDocument doc; // create and populate a JsonObject
     auto err = deserializeJson( doc, json_str.c_str() );
     if( err ) {
       YAML_LOG_n("Unable to deserialize demo JSON to JsonObject: %s", err.c_str() );
@@ -417,7 +425,7 @@ void setup()
 
   test_fn( test_Yaml2JsonPretty,     "serializeYml", "Yaml2JsonPretty",       "serializeYml(yaml_document_t*, Stream&, OUTPUT_JSON_PRETTY)" );
   test_fn( test_Yaml2Json,           "serializeYml", "Yaml2Json",             "serializeYml(yaml_document_t*, Stream&, OUTPUT_JSON)" );
-  test_fn( test_Json2Yaml,           "serializeYml", "Json2Yam",              "serializeYml(yaml_document_t*, Stream&, OUTPUT_YAML)" );
+  test_fn( test_Json2Yaml,           "serializeYml", "Json2Yaml",             "serializeYml(yaml_document_t*, Stream&, OUTPUT_YAML)" );
 
 
   YAML_LOG_n("### YAMLParser libyaml tests complete\n");
