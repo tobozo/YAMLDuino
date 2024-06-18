@@ -85,9 +85,6 @@ extern "C"
 
 #if defined HAS_ARDUINOJSON
   #include <ArduinoJson.h>
-  #if ARDUINOJSON_VERSION_MAJOR<7
-    #error "ArduinoJSON version is deprecated, please upgrade to 7.x"
-  #endif
 #endif
 
 #if defined HAS_CJSON
@@ -294,13 +291,21 @@ namespace YAML
       public:
         YAMLToArduinoJson() {};
         ~YAMLToArduinoJson() { if( _doc) delete _doc; }
-        void setJsonDocument( const size_t capacity ) { _doc = new JsonDocument; _root = _doc->to<JsonObject>(); }
+        #if ARDUINOJSON_VERSION_MAJOR<7
+          void setJsonDocument( const size_t capacity ) { _doc = new DynamicJsonDocument(capacity); _root = _doc->to<JsonObject>(); }
+        #else
+          void setJsonDocument( const size_t capacity ) { _doc = new JsonDocument; _root = _doc->to<JsonObject>(); }
+        #endif
         JsonObject& getJsonObject() { return _root; }
         static DeserializationError toJsonObject( Stream &src, JsonObject& output );
         static DeserializationError toJsonObject( const char* src, JsonObject& output );
 
       private:
-        JsonDocument *_doc = nullptr;
+        #if ARDUINOJSON_VERSION_MAJOR<7
+          DynamicJsonDocument *_doc = nullptr;
+        #else
+          JsonDocument *_doc = nullptr;
+        #endif
         JsonObject _root;
 
       };
