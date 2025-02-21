@@ -45,7 +45,7 @@ void test_deserializeYml_JsonObject_YamlStream()
   #if defined TEST_YAML_Stream_To_ArduinoJsonObject
   String yaml_str = String( yaml_sample_str );
   StringStream yaml_stream( yaml_str );
-  StaticJsonDocument<128> json_doc;
+  JsonDocument json_doc;
   JsonObject json_obj = json_doc.to<JsonObject>();
   auto err = deserializeYml( json_obj, yaml_stream ); // deserialize yaml stream to JsonObject
   if( err ) {
@@ -60,7 +60,7 @@ void test_deserializeYml_JsonObject_YamlStream()
 void test_deserializeYml_JsonObject_YamlString()
 {
   #if defined TEST_YAML_String_To_ArduinoJsonObject
-  StaticJsonDocument<128> json_doc;
+  JsonDocument json_doc;
   JsonObject json_obj = json_doc.to<JsonObject>();
   auto err = deserializeYml( json_obj, yaml_sample_str ); // deserialize yaml string to JsonObject
   if( err ) {
@@ -75,7 +75,7 @@ void test_deserializeYml_JsonObject_YamlString()
 void test_deserializeYml_JsonDocument_YamlStream()
 {
   #if defined TEST_YAML_Stream_To_ArduinoJsonDocument
-  StaticJsonDocument<128> json_doc;
+  JsonDocument json_doc;
   String yaml_str = String( yaml_sample_str );
   StringStream yaml_stream( yaml_str );
   auto err = deserializeYml( json_doc, yaml_stream ); // deserialize yaml stream to JsonDocument
@@ -92,7 +92,7 @@ void test_deserializeYml_JsonDocument_YamlString()
 {
   #if defined TEST_YAML_String_To_ArduinoJsonDocument
   String yaml_str( yaml_sample_str );
-  StaticJsonDocument<128> json_doc;
+  JsonDocument json_doc;
   auto err = deserializeYml( json_doc, yaml_str.c_str() ); // deserialize yaml string to JsonDocument
   if( err ) {
     Serial.printf("Unable to deserialize demo YAML to JsonObject: %s", err.c_str() );

@@ -1,6 +1,18 @@
 #include <ArduinoJson.h>
 #include <YAMLDuino.h>
-#include <M5Stack.h>
+
+#if defined ARDUINO_M5Stack_Core_ESP32
+  #include <M5Stack.h>
+  #define FS_t fs::FS
+  #define File_t fs::File
+  #define delay_fn vTaskDelay
+#else
+  #include <FS.h>
+  #include <SD.h>
+  #define FS_t FS
+  #define File_t File
+  #define delay_fn delay
+#endif
 
 
 const char* yaml_example_str = R"_YAML_STRING_(
@@ -27,13 +39,13 @@ const char* nodename = "my_setting"; // property name in the config
 const bool default_value = false; // default value for property
 bool current_value = default_value;
 bool config_loaded = false; // prevent updates if config isn't loaded
-DynamicJsonDocument json_doc(2048);
+JsonDocument json_doc;
 JsonObject myConfig; // json accessor
 
 
-bool writeTestYaml( fs::FS &fs, const char* path )
+bool writeTestYaml( FS_t &fs, const char* path )
 {
-  fs::File file = fs.open( path, FILE_WRITE );
+  File_t file = fs.open( path, FILE_WRITE );
   if( !file ) {
     Serial.println("Can't open file for writing");
     return false;
@@ -47,7 +59,7 @@ bool writeTestYaml( fs::FS &fs, const char* path )
 
 bool loadYamlConfig()
 {
-  fs::File file = SD.open( config_file );
+  File_t file = SD.open( config_file );
   if( !file ) {
     Serial.println("Can't open test file for writing :-(");
     return false;
@@ -68,7 +80,7 @@ bool loadYamlConfig()
 
 bool saveYamlConfig()
 {
-  fs::File file = SD.open( config_file, FILE_WRITE);
+  File_t file = SD.open( config_file, FILE_WRITE);
   if( !file ) {
     Serial.println("Can't open file for writing");
     return false;
@@ -93,14 +105,23 @@ bool toggleYamlProperty()
 
 void setup()
 {
-  M5.begin();
+  #if defined ARDUINO_M5Stack_Core_ESP32
+    M5.begin();
+    if( M5.BtnA.isPressed() ) {
+      SD.remove( config_file );
+      Serial.println("Deleted config file");
+      while( M5.BtnA.isPressed() ) { M5.update(); } // wait for release
+      ESP.restart();
+    }
+  #elif defined CORE_TEENSY
+    Serial.begin(115200);
+    SD.begin( BUILTIN_SDCARD );
+  #else
+    Serial.begin(115200);
+    SD.begin(SS);
+  #endif
 
-  if( M5.BtnA.isPressed() ) {
-    SD.remove( config_file );
-    Serial.println("Deleted config file");
-    while( M5.BtnA.isPressed() ) { M5.update(); } // wait for release
-    ESP.restart();
-  }
+
 
   _load_config:
   config_loaded = loadYamlConfig();
@@ -109,7 +130,7 @@ void setup()
     Serial.printf("Ceating config file %s\n", config_file );
     if( !writeTestYaml( SD, config_file ) ) {
       Serial.println("Could not create config file, aborting");
-      while(1) vTaskDelay(1);
+      while(1) delay_fn(1);
     }
     // write succeeded, reload config
     goto _load_config;
@@ -122,6 +143,7 @@ void setup()
 
 void loop()
 {
+  #if defined ARDUINO_M5Stack_Core_ESP32
   M5.update();
 
   if( M5.BtnB.wasPressed() ) {
@@ -129,5 +151,6 @@ void loop()
       Serial.println("Failed to save property");
     }
   }
+  #endif
 }
 
