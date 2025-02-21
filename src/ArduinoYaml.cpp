@@ -323,6 +323,33 @@ namespace YAML
 
 
     /*\
+     * @brief YAML multiline entities escaper for YAML output
+     *
+     * Helper for serializers.
+     *
+    \*/
+    void yaml_multiline_escape_string( Stream* stream, yaml_node_t *node, size_t *bytes_out, size_t depth )
+    {
+      // int plain_implicit = (strcmp((char *)node->tag, YAML_DEFAULT_SCALAR_TAG) == 0);
+      bool quoted_implicit = (strcmp((char *)node->tag, YAML_DEFAULT_SCALAR_TAG) == 0);
+      char quote = 0;
+      if( quoted_implicit ) {
+        switch( node->data.scalar.style )
+        {
+          case YAML_SINGLE_QUOTED_SCALAR_STYLE: quote = '\''; break;
+          case YAML_DOUBLE_QUOTED_SCALAR_STYLE: quote = '"'; break;
+          default: quoted_implicit = false; break;
+        }
+      }
+      if( quoted_implicit ) *bytes_out+= stream->write(quote);
+      yaml_multiline_escape_string(stream, SCALAR_c(node), strlen(SCALAR_c(node)), bytes_out, depth );
+      if( quoted_implicit ) *bytes_out+= stream->write(quote);
+    }
+
+
+
+
+    /*\
      * @brief YAML string escaper for JSON output
      *
      * Helper for serializers when escaping to JSON.
@@ -355,17 +382,33 @@ namespace YAML
     \*/
     bool scalar_needs_quote( yaml_node_t *node )
     {
-      if( node->type != YAML_SCALAR_NODE ) return false;
+      if( node->type != YAML_SCALAR_NODE )
+        return false;
+
+      if( (strcmp((char *)node->tag, YAML_DEFAULT_SCALAR_TAG) == 0) ) {
+        switch( node->data.scalar.style )
+        {
+          case YAML_SINGLE_QUOTED_SCALAR_STYLE:
+          case YAML_DOUBLE_QUOTED_SCALAR_STYLE:
+            return true;
+          break;
+          default: break;
+        }
+      }
+
       bool needs_quotes = true;
       bool is_bool = false;
       bool bool_value = false;
       bool is_string = false;
+      bool is_hex = false;
       __attribute__((unused)) double number;
       char* scalar;
       char* end;
       scalar = SCALAR_s(node);
       number = strtod(scalar, &end);
-      is_string = (end == scalar || *end);
+      // NOTE: '0x...' hexadecimal representations pass the strtod() test, but we want to keep them as strings
+      is_hex = strlen(scalar)>2 && scalar[0]=='0' && (scalar[1]=='x' || scalar[1]=='X');
+      is_string = is_hex || (end == scalar || *end) ;
       if( is_string && yaml_node_is_bool( node, &bool_value ) ) {
         is_bool = true;
       }
@@ -950,7 +993,7 @@ namespace YAML
       switch (node->type) {
         case YAML_SCALAR_NODE:
           if ( nest_type == YAMLNode::Type::Sequence ) bytes_out += stream->printf("\n%s%s",  indent(depth, YAML::YAML_INDENT), index() );
-          yaml_multiline_escape_string( stream, SCALAR_c(node), strlen(SCALAR_c(node)), &bytes_out, depth );
+          yaml_multiline_escape_string( stream, node, &bytes_out, depth );
         break;
         case YAML_SEQUENCE_NODE:
           for (auto item_i = node->data.sequence.items.start; item_i < node->data.sequence.items.top; ++item_i) {
@@ -995,13 +1038,27 @@ namespace YAML
        * Output: ArduinoJSON JsonObject
        *
       \*/
-      DeserializationError deserializeYml_JsonObject( yaml_document_t* document, yaml_node_t* yamlNode, JsonObject &jsonNode, YAMLNode::Type nt, const char *nodename, int depth )
+      DeserializationError deserializeYml_JsonObject( yaml_document_t* document, yaml_node_t* yamlNode, JsonVariant jsonNode, YAMLNode::Type nt, const char *nodename, int depth )
       {
         bool isRootNode = ( strlen(nodename)<=0 );
 
         switch (yamlNode->type) {
           case YAML_SCALAR_NODE:
           {
+            //int plain_implicit = (strcmp((char *)yamlNode->tag, YAML_DEFAULT_SCALAR_TAG) == 0);
+            bool quoted_implicit = false; // (strcmp((char *)yamlNode->tag, YAML_DEFAULT_SCALAR_TAG) == 0);
+
+            if( (strcmp((char *)yamlNode->tag, YAML_DEFAULT_SCALAR_TAG) == 0) ) {
+              switch( yamlNode->data.scalar.style )
+              {
+                case YAML_SINGLE_QUOTED_SCALAR_STYLE:
+                case YAML_DOUBLE_QUOTED_SCALAR_STYLE:
+                  quoted_implicit = true;
+                break;
+                default: break;
+              }
+            }
+
             double number;
             char* scalar;
             char* end;
@@ -1009,7 +1066,7 @@ namespace YAML
             number = strtod(scalar, &end);
             bool is_bool = false;
             bool bool_value = false;
-            bool is_string = (end == scalar || *end);
+            bool is_string = quoted_implicit || (end == scalar || *end);
             if( is_string && yaml_node_is_bool( yamlNode, &bool_value ) ) {
               is_bool = true;
             }
@@ -1033,29 +1090,34 @@ namespace YAML
           break;
           case YAML_SEQUENCE_NODE:
           {
-            JsonArray tmpArray = jsonNode.createNestedArray((char*)nodename);
+            JsonArray tmpArray = jsonNode[(char*)nodename].to<JsonArray>();
             yaml_node_item_t * item_i;
             yaml_node_t *itemNode;
             String _nodeItemName;
             JsonObject tmpObj;
+
             for (item_i = yamlNode->data.sequence.items.start; item_i < yamlNode->data.sequence.items.top; ++item_i) {
               itemNode = yaml_document_get_node(document, *item_i);
               if( itemNode->type == YAML_MAPPING_NODE ) { // array of anonymous objects
-                tmpObj = tmpArray.createNestedObject(); // insert empty nested object
-                _nodeItemName = ROOT_NODE + String( nodename ) + String( tmpArray.size() ); // generate a temporary nodename
-                tmpObj.createNestedObject((char*)_nodeItemName.c_str());
+                tmpObj = tmpArray.add<JsonObject>(); // insert empty nested object
+                _nodeItemName = ROOT_NODE + String( nodename ) + String( tmpArray.size() ); // generate a temporary nodename for recursive call
+                tmpObj[(char*)_nodeItemName.c_str()].to<JsonObject>(); // use that nodename in a temporary nested object
                 deserializeYml_JsonObject( document, itemNode, tmpObj, YAMLNode::Type::Sequence, _nodeItemName.c_str(), depth+1 ); // go recursive using temporary node name
-                jsonNode[nodename][tmpArray.size()-1] = tmpObj[_nodeItemName.c_str()]; // remove temporary name and make object anonymous
+                jsonNode[nodename].add( tmpObj[_nodeItemName.c_str()].as<JsonObject>() ); // copy+anonymize the temporary node
+                jsonNode[nodename].remove(tmpArray.size()-2); // remove temporary node
               } else { // array of sequences or values
                 _nodeItemName = "" + String( nodename );
                 deserializeYml_JsonObject( document, itemNode, jsonNode, YAMLNode::Type::Sequence, _nodeItemName.c_str(), depth+1 );
               }
             }
+
+
           }
           break;
           case YAML_MAPPING_NODE:
           {
-            JsonObject tmpNode = isRootNode ? jsonNode : jsonNode.createNestedObject((char*)nodename);
+            //JsonObject tmpNode = isRootNode ? jsonNode : jsonNode.createNestedObject((char*)nodename);
+            JsonObject tmpNode = isRootNode ? jsonNode.to<JsonObject>() : jsonNode[(char*)nodename].to<JsonObject>();
             yaml_node_pair_t* pair_i;
             yaml_node_t* key;
             yaml_node_t* value;
@@ -1066,7 +1128,7 @@ namespace YAML
                 YAML_LOG_e("Mapping key is not scalar (line %lu, val=%s).", key->start_mark.line, SCALAR_c(value) );
                 continue;
               }
-              tmpNode.createNestedObject( SCALAR_s(key) );
+              tmpNode[SCALAR_s(key)].to<JsonObject>(); // create nested object
               deserializeYml_JsonObject( document, value, tmpNode, YAMLNode::Type::Map, SCALAR_c(key), depth+1 );
             }
           }
@@ -1261,12 +1323,30 @@ namespace YAML
           break;
           case YAML_SCALAR_NODE:
           {
+            //int plain_implicit = (strcmp((char *)yamlNode->tag, YAML_DEFAULT_SCALAR_TAG) == 0);
+            //int quoted_implicit = (strcmp((char *)yamlNode->tag, YAML_DEFAULT_SCALAR_TAG) == 0);
+
+            bool quoted_implicit = (strcmp((char *)yamlNode->tag, YAML_DEFAULT_SCALAR_TAG) == 0);
+
+            if( quoted_implicit ) {
+              switch( yamlNode->data.scalar.style )
+              {
+                case YAML_SINGLE_QUOTED_SCALAR_STYLE:
+                case YAML_DOUBLE_QUOTED_SCALAR_STYLE:
+                  quoted_implicit = true;
+                break;
+                default:
+                  quoted_implicit = false;
+                break;
+              }
+            }
+
             double number;
             char * scalar;
             char * end;
             scalar = SCALAR_s(yamlNode);
             number = strtod(scalar, &end);
-            if( (end == scalar || *end) ) { // string or bool
+            if( quoted_implicit || (end == scalar || *end) ) { // string or bool
               bool bool_value;
               if( yaml_node_is_bool( yamlNode, &bool_value ) ) {
                 object = cJSON_CreateBool( bool_value );
@@ -1369,7 +1449,8 @@ namespace YAML
       \*/
       size_t serializeYml( cJSON* src_obj, String &dest_string )
       {
-        assert( src_obj );
+        if( !src_obj )
+          return 0;
         StringStream dest_stream( dest_string );
         return serializeYml_cJSONObject( src_obj, dest_stream, 0, YAMLNode::Type::Null );
       }
@@ -1384,7 +1465,8 @@ namespace YAML
       \*/
       size_t serializeYml( cJSON* src_obj, Stream &dest_stream )
       {
-        assert( src_obj );
+        if( !src_obj )
+          return 0;
         return serializeYml_cJSONObject( src_obj, dest_stream, 0, YAMLNode::Type::Null );
       }
 
