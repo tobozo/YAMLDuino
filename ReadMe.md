@@ -61,9 +61,9 @@ size_t serializeYml( yaml_document_t* src_doc, String &dest_string, OutputFormat
 // JSON/YAML object to YAML/JSON stream
 size_t serializeYml( yaml_document_t* src_doc, Stream &dest_stream, OutputFormat_t format=OUTPUT_YAML );
 
-// YAML stream to YAML document
-int deserializeYml( YAMLNode& dest_obj, const char* src_yaml_str );
 // YAML string to YAML document
+int deserializeYml( YAMLNode& dest_obj, const char* src_yaml_str );
+// YAML stream to YAML document
 int deserializeYml( YAMLNode& dest_obj, Stream &src_stream );
 
 ```
@@ -147,7 +147,7 @@ size_t serializeYml( JsonVariant src_obj, Stream &dest_stream );
 DeserializationError deserializeYml( JsonObject &dest_obj, const char* src_yaml_str );
 // Deserialize YAML stream to ArduinoJSON object
 DeserializationError deserializeYml( JsonObject &dest_obj, Stream &src_stream );
-// Deserialize YAML string to ArduinoJSON document
+// Deserialize YAML stream to ArduinoJSON document
 DeserializationError deserializeYml( JsonDocument &dest_doc, Stream &src_stream );
 // Deserialize YAML string to ArduinoJSON document
 DeserializationError deserializeYml( JsonDocument &dest_doc, const char *src_yaml_str) ;
