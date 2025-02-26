@@ -2,7 +2,7 @@
 
 int test_number = 1;
 
-typedef void(test_fn_t)();
+typedef size_t(test_fn_t)();
 
 static int free_heap_begin;
 static int free_heap_end;
@@ -17,6 +17,7 @@ struct testreport_t
   int free_heap_begin;
   int free_heap_end;
   int free_heap_diff;
+  size_t bytes_out;
 };
 
 #include <vector>
@@ -29,6 +30,7 @@ const char* test_decorator_success = "  ✓✓✓✓✓✓✓✓✓✓✓✓✓�
 
 void test_fn( test_fn_t fn, const char *fn_name, const char* desc, const char* usage )
 {
+  size_t bytes_out = 0;
   {
     free_heap_begin = HEAP_AVAILABLE();
     Serial.println();
@@ -37,7 +39,7 @@ void test_fn( test_fn_t fn, const char *fn_name, const char* desc, const char* u
   }
   {
     // scope the function
-    fn();
+    bytes_out = fn();
   }
   {
     free_heap_end = HEAP_AVAILABLE();
@@ -47,7 +49,11 @@ void test_fn( test_fn_t fn, const char *fn_name, const char* desc, const char* u
     if( free_heap_diff > 0 ) {
       // uh-oh mem leak
       Serial.println(test_decorator_fail);
-      Serial.printf ("  ✖ [Memleak] ✖ Bytes diff=%-6d ✖ Before=%-6d, After=%-6d ✖\n", free_heap_diff, free_heap_begin, free_heap_end );
+      Serial.printf ("  ⚠ [Memleak] ⚠ Bytes diff=%-6d ⚠ Before=%-6d, After=%-6d ⚠\n", free_heap_diff, free_heap_begin, free_heap_end );
+      Serial.println(test_decorator_fail);
+    } else if(bytes_out==0) {
+      Serial.println(test_decorator_fail);
+      Serial.printf ("  ✖ [Fail] ✖ Bytes diff=%-6d ✖ Before=%-6d, After=%-6d ✖\n", free_heap_diff, free_heap_begin, free_heap_end );
       Serial.println(test_decorator_fail);
     } else {
       Serial.println(test_decorator_success);
@@ -62,7 +68,8 @@ void test_fn( test_fn_t fn, const char *fn_name, const char* desc, const char* u
       usage,
       free_heap_begin,
       free_heap_end,
-      free_heap_diff
+      free_heap_diff,
+      bytes_out
     });
 
     Serial.println();
@@ -80,11 +87,13 @@ const char* fn_names[3] =
 
 void printReport( const char* fn_name )
 {
-  for( int i=0; i<test_reports.size(); i++ ) {
+  for( size_t i=0; i<test_reports.size(); i++ ) {
     testreport_t t = test_reports[i];
     if( strcmp( t.fn_name, fn_name ) != 0 ) continue;
     if( t.free_heap_diff !=0 ) {
-      Serial.printf( "  [✖] TEST #%-2d: ⚠ %d bytes mem leak: %s using %s() FAILED\n", t.test_number, t.free_heap_diff, t.desc, t.fn_name );
+      Serial.printf( "  [⚠] TEST #%-2d: ⚠ %d bytes leaked: %s using %s() MEMLEAK\n", t.test_number, t.free_heap_diff, t.desc, t.fn_name );
+    } else if(t.bytes_out==0) {
+        Serial.printf( "  [✖] TEST #%-2d: %s using %s() FAILED\n", t.test_number, t.desc, t.fn_name );
     } else {
       Serial.printf( "  [✓] TEST #%-2d: %s using %s() succeeded\n", t.test_number, t.desc, t.fn_name );
     }
@@ -96,7 +105,7 @@ void printGlobalReport()
 {
   Serial.println(test_decorator_begin);
   Serial.println();
-  for( int i=0;i<3;i++ ) {
+  for( size_t i=0;i<3;i++ ) {
     Serial.printf("-- %s --\n", fn_names[i] );
     printReport( fn_names[i] );
   }

@@ -6,14 +6,12 @@
   #define FS_t fs::FS
   #define File_t fs::File
   #define delay_fn vTaskDelay
-#elif defined CORE_TEENSY
+#else
   #include <FS.h>
   #include <SD.h>
   #define FS_t FS
   #define File_t File
   #define delay_fn delay
-#else
-  #error "please implement"
 #endif
 
 
@@ -41,7 +39,7 @@ const char* nodename = "my_setting"; // property name in the config
 const bool default_value = false; // default value for property
 bool current_value = default_value;
 bool config_loaded = false; // prevent updates if config isn't loaded
-DynamicJsonDocument json_doc(2048);
+JsonDocument json_doc;
 JsonObject myConfig; // json accessor
 
 
@@ -63,7 +61,7 @@ bool loadYamlConfig()
 {
   File_t file = SD.open( config_file );
   if( !file ) {
-    Serial.println("Can't open test file for writing :-(");
+    Serial.println("Can't open test file for reading :-(");
     return false;
   }
   auto err = deserializeYml( json_doc, file ); // convert yaml to json
@@ -119,7 +117,8 @@ void setup()
     Serial.begin(115200);
     SD.begin( BUILTIN_SDCARD );
   #else
-    #error "please implement"
+    Serial.begin(115200);
+    SD.begin(SS);
   #endif
 
 

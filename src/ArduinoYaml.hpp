@@ -45,7 +45,9 @@ extern "C"
 {
   #include "libyaml/yaml.h" // https://github.com/yaml/libyaml
 }
-#include <memory>   // for std::shared_ptr
+#include <memory>    // for std::shared_ptr
+#include <string>    // for std::string
+#include <stdexcept> // for std::runtime_error
 
 
 #if defined ARDUINO_ARCH_SAMD || defined ARDUINO_ARCH_RP2040 || defined ESP8266 || defined ARDUINO_ARCH_AVR || defined CORE_TEENSY
@@ -85,6 +87,11 @@ extern "C"
 
 #if defined HAS_ARDUINOJSON
   #include <ArduinoJson.h>
+
+  #if ARDUINOJSON_VERSION_MAJOR < 7
+    #error "This version of YAMLDuino only supports ArduinoJson 7.x"
+  #endif
+
 #endif
 
 #if defined HAS_CJSON
@@ -283,7 +290,7 @@ namespace YAML
       // default name for the topmost temporary JsonObject
       #define ROOT_NODE "_root_"
       // deconstructors
-      DeserializationError deserializeYml_JsonObject( yaml_document_t*, yaml_node_t* , JsonObject&, YAMLNode::Type nt=YAMLNode::Type::Null, const char *nodename="", int depth=0 );
+      DeserializationError deserializeYml_JsonObject( yaml_document_t*, yaml_node_t* , JsonVariant, YAMLNode::Type nt=YAMLNode::Type::Null, const char *nodename="", int depth=0 );
       size_t serializeYml_JsonVariant( JsonVariant root, Stream &out, int depth_level, YAMLNode::Type nt );
 
       class YAMLToArduinoJson
@@ -291,21 +298,13 @@ namespace YAML
       public:
         YAMLToArduinoJson() {};
         ~YAMLToArduinoJson() { if( _doc) delete _doc; }
-        #if ARDUINOJSON_VERSION_MAJOR<7
-          void setJsonDocument( const size_t capacity ) { _doc = new DynamicJsonDocument(capacity); _root = _doc->to<JsonObject>(); }
-        #else
-          void setJsonDocument( const size_t capacity ) { _doc = new JsonDocument; _root = _doc->to<JsonObject>(); }
-        #endif
+        void setJsonDocument( const size_t capacity ) { _doc = new JsonDocument(/*capacity*/); _root = _doc->to<JsonObject>(); }
         JsonObject& getJsonObject() { return _root; }
         static DeserializationError toJsonObject( Stream &src, JsonObject& output );
         static DeserializationError toJsonObject( const char* src, JsonObject& output );
 
       private:
-        #if ARDUINOJSON_VERSION_MAJOR<7
-          DynamicJsonDocument *_doc = nullptr;
-        #else
-          JsonDocument *_doc = nullptr;
-        #endif
+        JsonDocument *_doc = nullptr;
         JsonObject _root;
 
       };
@@ -374,6 +373,8 @@ namespace YAML
 
 
   #if defined I18N_SUPPORT
+
+    // stringfwd
 
     namespace libyaml_i18n
     {
