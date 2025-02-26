@@ -58,14 +58,11 @@ jobs:
 
         platform-version:
           # ESP32 Core versions for multidimensional matrix
-          # - 1.0.6
-          # - 2.0.0
-          # - 2.0.1
-          # - 2.0.2
-          # - 2.0.3
-          # - 2.0.4
-          # - 2.0.5
-          # - 2.0.6
+          - 2.0.15
+          - 2.0.16
+          - 2.0.17
+          - 3.1.1
+          - 3.1.2
           - latest
 
         include:
@@ -86,25 +83,9 @@ jobs:
           - { board: esp32s3, platform: esp32, arch: esp32, ... }
           - { board: esp32c3, platform: esp32, arch: esp32, ... }
 
-        # exclude:
-        #   # multidimensional matrix excludes (no support or unstable):
-        #
-        #   - { board: esp32s2, platform-version: 1.0.6 }
-        #   - { board: esp32s2, platform-version: 2.0.0 }
-        #
-        #   - { board: esp32s3, platform-version: 1.0.6 }
-        #   - { board: esp32s3, platform-version: 2.0.0 }
-        #   - { board: esp32s3, platform-version: 2.0.1 }
-        #   - { board: esp32s3, platform-version: 2.0.2 }
-        #   - { board: esp32s3, platform-version: 2.0.4 }
-        #
-        #   - { board: esp32c3, platform-version: 1.0.6 }
-        #   - { board: esp32c3, platform-version: 2.0.0 }
-
-
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           ref: ${{ github.event.pull_request.head.sha }}
 

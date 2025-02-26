@@ -87,7 +87,7 @@ const char* fn_names[3] =
 
 void printReport( const char* fn_name )
 {
-  for( int i=0; i<test_reports.size(); i++ ) {
+  for( size_t i=0; i<test_reports.size(); i++ ) {
     testreport_t t = test_reports[i];
     if( strcmp( t.fn_name, fn_name ) != 0 ) continue;
     if( t.free_heap_diff !=0 ) {
@@ -105,7 +105,7 @@ void printGlobalReport()
 {
   Serial.println(test_decorator_begin);
   Serial.println();
-  for( int i=0;i<3;i++ ) {
+  for( size_t i=0;i<3;i++ ) {
     Serial.printf("-- %s --\n", fn_names[i] );
     printReport( fn_names[i] );
   }

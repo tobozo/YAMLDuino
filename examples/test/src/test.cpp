@@ -165,7 +165,7 @@ size_t test_Yaml_gettext_string()
   size_t out_len = 0;
   YAMLNode root = YAMLNode::loadString( yaml_sample_str );
   size_t paths_count = sizeof( testpaths ) / sizeof( const char*);
-  for( int i=0;i<paths_count; i++ ) {
+  for( size_t i=0;i<paths_count; i++ ) {
     const char* text = root.gettext( testpaths[i] );
     out_len += text?strlen(text):0;
     YAML_LOG_n( "[%s][=>] %s", testpaths[i], text );
@@ -178,7 +178,7 @@ size_t test_Json_gettext_string()
   size_t out_len = 0;
   YAMLNode root = YAMLNode::loadString( json_sample_str );
   size_t paths_count = sizeof( testpaths ) / sizeof( const char*);
-  for( int i=0;i<paths_count; i++ ) {
+  for( size_t i=0;i<paths_count; i++ ) {
     const char* text = root.gettext( testpaths[i] );
     out_len += text?strlen(text):0;
     YAML_LOG_n( "[%s][=>] %s", testpaths[i], text );
@@ -194,7 +194,7 @@ size_t test_Yaml_gettext_stream()
   StringStream yaml_stream( yaml_str );
   YAMLNode root = YAMLNode::loadStream( yaml_stream );
   size_t paths_count = sizeof( testpaths ) / sizeof( const char*);
-  for( int i=0;i<paths_count; i++ ) {
+  for( size_t i=0;i<paths_count; i++ ) {
     const char* text = root.gettext( testpaths[i] );
     out_len += text?strlen(text):0;
     YAML_LOG_n( "[%s][=>] %s", testpaths[i], text );
@@ -209,7 +209,7 @@ size_t test_Json_gettext_stream()
   StringStream json_stream( json_str );
   YAMLNode root = YAMLNode::loadStream( json_stream );
   size_t paths_count = sizeof( testpaths ) / sizeof( const char*);
-  for( int i=0;i<paths_count; i++ ) {
+  for( size_t i=0;i<paths_count; i++ ) {
     const char* text = root.gettext( testpaths[i] );
     out_len += text?strlen(text):0;
     YAML_LOG_n( "[%s][=>] %s", testpaths[i], text );
