@@ -42,14 +42,14 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.cache/pip
-          key: ${{ runner.os }}-python-pip-${{ hashFiles('**/requirements.txt') }}
+          key: ${{ runner.os }}-pip-${{ matrix.pio-env }}
           restore-keys: |
             ${{ runner.os }}-pip-
       - name: Cache PlatformIO
         uses: actions/cache@v4
         with:
           path: ~/.platformio
-          key: ${{ runner.os }}-pio-${{ hashFiles('**/lockfiles') }}
+          key: ${{ runner.os }}-pio-${{ matrix.pio-env }}
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
