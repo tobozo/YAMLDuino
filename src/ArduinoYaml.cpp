@@ -1064,11 +1064,18 @@ namespace YAML
             char* end;
             scalar = SCALAR_s(yamlNode);
             number = strtod(scalar, &end);
+            bool is_double = false;
             bool is_bool = false;
             bool bool_value = false;
             bool is_string = quoted_implicit || (end == scalar || *end);
             if( is_string && yaml_node_is_bool( yamlNode, &bool_value ) ) {
               is_bool = true;
+            }
+            if( SCALAR_Quoted(yamlNode) ) {
+              is_string = true;
+            }
+            if( !is_bool && !is_string ) {
+              is_double = String(scalar).indexOf(".") > 0;
             }
             switch( nt ) {
               case YAMLNode::Type::Sequence:
@@ -1076,13 +1083,15 @@ namespace YAML
                 JsonArray array = jsonNode[nodename];
                 if(is_bool)        array.add( bool_value );
                 else if(is_string) array.add( scalar );
-                else               array.add( number );
+                else if(is_double) array.add( number );
+                else               array.add( (int64_t)number );
               }
               break;
               case YAMLNode::Type::Map:
                 if(is_bool)        jsonNode[nodename] = bool_value;
                 else if(is_string) jsonNode[nodename] = scalar;
-                else               jsonNode[nodename] = number;
+                else if(is_double) jsonNode[nodename] = number;
+                else               jsonNode[nodename] = (int64_t)number;
               break;
               default: YAML_LOG_e("Error invalid nesting type"); break;
             }
@@ -1110,8 +1119,6 @@ namespace YAML
                 deserializeYml_JsonObject( document, itemNode, jsonNode, YAMLNode::Type::Sequence, _nodeItemName.c_str(), depth+1 );
               }
             }
-
-
           }
           break;
           case YAML_MAPPING_NODE:

@@ -1,6 +1,14 @@
 
 #include <ArduinoJson.h>
 
+// very dirty but necessary for the CI test
+// don't do that in your project!!
+#if ARDUINOJSON_VERSION_MAJOR<7
+  #define ARDUINOJSONDOC DynamicJsonDocument json_doc(2048)
+#else
+  #define ARDUINOJSONDOC JsonDocument json_doc
+#endif
+
 //#define YAML_DISABLE_CJSON // not needed here
 //#define YAML_DISABLE_ARDUINOJSON // not needed here
 
@@ -55,6 +63,7 @@ blah:
   unquoted_hex: 0x1234
   double_quoted_hex: "0x1234"
   single_quoted_hex: '0x1234'
+
   inline_json_for_the_haters: { "hello":"json", "nested":[3,2,"1","moon"] }
 whatever:
   nope: ["n","o","p","e"]

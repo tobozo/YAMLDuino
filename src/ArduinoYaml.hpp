@@ -128,6 +128,7 @@ namespace YAML
   // shorthand to libyaml scalar values
   #define SCALAR_c(x) (const char*)x->data.scalar.value
   #define SCALAR_s(x)       (char*)x->data.scalar.value
+  #define SCALAR_Quoted(n) n->data.scalar.style == YAML_SINGLE_QUOTED_SCALAR_STYLE || n->data.scalar.style == YAML_DOUBLE_QUOTED_SCALAR_STYLE
 
   void setYAMLIndent( int spaces_per_indent=2 ); // min=2, max=16
   void setJSONIndent( const char* spaces_or_tabs=JSON_SCALAR_TAB, int folding_depth=JSON_FOLDING_DEPTH );

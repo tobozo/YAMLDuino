@@ -3,6 +3,10 @@
 #include <ArduinoJson.h>
 #include <YAMLDuino.h>
 
+#if ARDUINOJSON_VERSION_MAJOR<7
+  #error "ArduinoJSON version is deprecated, please upgrade to 7.x"
+#endif
+
 const char* yaml_sample_str = R"_YAML_STRING_(
 first: true
 blah:
