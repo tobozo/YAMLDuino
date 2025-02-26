@@ -61,7 +61,7 @@ bool loadYamlConfig()
 {
   File_t file = SD.open( config_file );
   if( !file ) {
-    Serial.println("Can't open test file for writing :-(");
+    Serial.println("Can't open test file for reading :-(");
     return false;
   }
   auto err = deserializeYml( json_doc, file ); // convert yaml to json

@@ -9,6 +9,8 @@ blah:
   nope: ["n","o","p","e"]
 integer: 12345
 float: 12.3323
+qinteger: "12345"
+qfloat: "12.3323"
 last: true
 
 )_YAML_STRING_";
@@ -20,6 +22,8 @@ const char* json_sample_str = R"_JSON_STRING_(
   "blah": { "nope": [ "n", "o", "p", "e" ] },
   "integer": 12345,
   "float": 12.3323,
+  "qinteger": "12345",
+  "qfloat": "12.3323",
   "last": true
 }
 
